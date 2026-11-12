@@ -27,16 +27,21 @@ export async function resolveUploadPath(
 		throw new CobRagError(`COB_RAG_UPLOAD_DIR does not exist: ${allowedDir}`, "CONFIG");
 	}
 	const fold = (p: string) => (platform === "win32" ? p.toLowerCase() : p);
-	const outside = (p: string) => {
-		const rel = relative(fold(base), fold(p));
+	const outsideOf = (dir: string, p: string) => {
+		const rel = relative(fold(dir), fold(p));
 		return rel === "" || rel.startsWith("..") || isAbsolute(rel);
 	};
+	const outside = (p: string) => outsideOf(base, p);
 	const refuse = () => new CobRagError(`Refused: ${requested} is outside the upload directory (${base}).`, "REFUSED");
 
 	// A relative path is taken relative to the upload directory, not the process cwd. Checked
 	// before touching the filesystem, so a refusal never reveals whether an outside file exists.
+	// The directory counts in both spellings, as configured and as resolved: on Windows they can
+	// differ (an 8.3 short name such as RUNNER~1 against the long name the native realpath
+	// returns), and an absolute path written with the configured spelling is still inside. The
+	// deciding check is the one after realpath below, where both sides are resolved.
 	const lexical = resolve(base, requested);
-	if (outside(lexical)) throw refuse();
+	if (outside(lexical) && outsideOf(resolve(allowedDir), lexical)) throw refuse();
 	let target: string;
 	try {
 		target = await realpath(lexical);

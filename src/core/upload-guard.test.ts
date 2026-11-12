@@ -25,8 +25,15 @@ describe("upload directory guard", () => {
 	});
 
 	it("accepts files inside the directory, by absolute or relative path", async () => {
-		await expect(resolveUploadPath(join(allowed, "faq.md"), allowed)).resolves.toBe(join(allowed, "faq.md"));
-		await expect(resolveUploadPath("sub/deep.txt", allowed)).resolves.toBe(join(allowed, "sub", "deep.txt"));
+		// The guard returns the native real path. On Windows CI the temp folder is an 8.3 short name
+		// (RUNNER~1) that realpathSync keeps and the native realpath expands, so the expectation is
+		// resolved the same way as the result.
+		await expect(resolveUploadPath(join(allowed, "faq.md"), allowed)).resolves.toBe(
+			realpathSync.native(join(allowed, "faq.md")),
+		);
+		await expect(resolveUploadPath("sub/deep.txt", allowed)).resolves.toBe(
+			realpathSync.native(join(allowed, "sub", "deep.txt")),
+		);
 	});
 
 	it("refuses traversal and absolute paths outside the directory", async () => {
