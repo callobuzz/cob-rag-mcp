@@ -1,0 +1,51 @@
+{
+	"$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+	"name": "io.github.callobuzz/cob-rag-mcp",
+	"title": "cob-rag-mcp",
+	"description": "Give any MCP client a business's own knowledge base from a self-hosted cob-rag-engine.",
+	"repository": {
+		"url": "https://github.com/callobuzz/cob-rag-mcp",
+		"source": "github"
+	},
+	"websiteUrl": "https://callobuzz.github.io/cob-rag-mcp",
+	"version": "0.2.0",
+	"packages": [
+		{
+			"registryType": "npm",
+			"identifier": "cob-rag-mcp",
+			"version": "0.2.0",
+			"transport": {
+				"type": "stdio"
+			},
+			"packageArguments": [
+				{
+					"type": "positional",
+					"value": "start"
+				}
+			],
+			"environmentVariables": [
+				{
+					"name": "COB_RAG_URL",
+					"description": "Address of your cob-rag-engine, for example https://rag.example.com",
+					"isRequired": true,
+					"format": "string",
+					"isSecret": false
+				},
+				{
+					"name": "COB_RAG_API_KEY",
+					"description": "A cob-rag-engine key: a knowledge-base key (ck_) reaches only that knowledge base",
+					"isRequired": true,
+					"format": "string",
+					"isSecret": true
+				},
+				{
+					"name": "COB_RAG_READ_ONLY",
+					"description": "true to offer only the tools that read",
+					"isRequired": false,
+					"format": "boolean",
+					"isSecret": false
+				}
+			]
+		}
+	]
+}
