@@ -1,0 +1,975 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>cob-rag-mcp — the MCP server and CLI for cob-rag-engine</title>
+<meta name="description" content="An MCP server and a full CLI for cob-rag-engine, the self-hosted knowledge layer for AI assistants and agents. Plug a business's own knowledge base into Claude, Cursor, VS Code, n8n or any MCP client, or work with it from the shell. You host the engine; there is no hosted service.">
+<meta name="theme-color" content="#06060C">
+<link rel="canonical" href="https://callobuzz.github.io/cob-rag-mcp/">
+<meta property="og:title" content="cob-rag-mcp — the MCP server and CLI for cob-rag-engine">
+<meta property="og:description" content="Plug a business's own knowledge base into Claude, Cursor, VS Code, n8n or any MCP client, or work with it from the shell. 52 tools, scoped by the key you hand it. You host the engine.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://callobuzz.github.io/cob-rag-mcp/">
+<meta property="og:image" content="https://callobuzz.github.io/cob-rag-mcp/assets/social-card.png">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="640">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/logo-32.png">
+<link rel="icon" type="image/png" sizes="64x64" href="assets/logo-64.png">
+<link rel="apple-touch-icon" href="assets/logo-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* Hallmark · genre: modern-minimal · macrostructure: Workbench (install-and-connect bench) · tone: technical · anchor hue: cyan 215
+ * theme: studied-DNA (source: cob-rag-engine DESIGN.md, sibling of the engine landing page) · paper oklch(12.6% 0.015 284)
+ * surface oklch(33.5% 0.055 219.5) · primary oklch(71.5% 0.126 215) · display Inter 500 · body Inter 400 · code/labels JetBrains Mono
+ * nav: N1b (frost, two-row scroller on phones) · footer: Ft5 Statement · enrichment: the engine's chrome logo, scripted assemble + live loop (Tier B)
+ * contrast: pass · honest: pass (no invented metrics; counts come from src/tools) · chrome: pass (no fake window bars) · tokens: pass · mobile: pass
+ */
+/* Hallmark · pre-emit critique: P4 H4 E4 S4 R4 V4 */
+:root{
+  --color-paper: oklch(12.6% 0.015 284);
+  --color-surface: oklch(33.5% 0.055 219.5);
+  --color-primary: oklch(71.5% 0.126 215);
+  --color-primary-ink: oklch(12.6% 0.015 284);
+  --color-ink: oklch(98.6% 0.004 215);
+  --color-ink-2: oklch(71.2% 0.013 286);
+  --color-rule: oklch(27.4% 0.005 286);
+  --color-paper-2: oklch(14.6% 0.018 250);
+  --color-panel: oklch(17.2% 0.022 232);
+  --color-panel-2: oklch(20.5% 0.03 226);
+  --color-rule-strong: oklch(37% 0.012 286);
+  --color-ink-3: oklch(64% 0.013 286);
+  --color-ink-on-surface: oklch(84% 0.02 215);
+  --color-term: oklch(10.5% 0.014 262);
+  --color-term-ink: oklch(90% 0.02 240);
+  --color-term-comment: oklch(62% 0.03 250);
+  --color-focus: oklch(78% 0.13 210);
+  --color-amber: oklch(80.8% 0.145 79);
+  --color-rose: oklch(73.7% 0.162 17);
+  --color-green: oklch(80.6% 0.158 160);
+  --color-shadow: oklch(4% 0.01 284);
+
+  --logo-ice: oklch(93.8% 0.057 208.6);
+  --logo-score: oklch(77.3% 0.132 219.9);
+
+  --font-display: "Inter", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Inter", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+
+  --space-2xs: 4px; --space-xs: 8px; --space-sm: 12px; --space-md: 16px;
+  --space-lg: 24px; --space-xl: 40px; --space-2xl: 64px; --space-3xl: 80px;
+  --radius-card: 16px; --radius-control: 8px; --radius-pill: 9999px;
+  --page-max: 1200px; --gutter: clamp(16px, 4vw, 32px);
+  --text-display: clamp(2.5rem, 3.6vw + 1rem, 4rem);
+  --text-h2: clamp(1.875rem, 2.2vw + 1rem, 2.875rem);
+  --fs-h3: 19px; --fs-lede: clamp(17px, 1.3vw, 19px); --fs-sub: 17px; --fs-small: 14.5px; --fs-micro: 13px;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.7, 0, 0.84, 0);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-micro: 120ms; --dur-short: 220ms; --dur-long: 520ms;
+  --nav-h: 64px;
+  --sec-pad: 40px; --sec-pad-act: 80px; --block-gap: 24px;
+  --primary-a: color-mix(in oklch, var(--color-primary) 12%, transparent);
+  --green-a: color-mix(in oklch, var(--color-green) 14%, transparent);
+  color-scheme: dark;
+}
+*, *::before, *::after{box-sizing: border-box;}
+html{overflow-x: clip; scroll-behavior: smooth; scroll-padding-top: calc(var(--nav-h) + 16px); -webkit-text-size-adjust: 100%;}
+body{margin: 0; overflow-x: clip; background: var(--color-paper); color: var(--color-ink); font-family: var(--font-body); font-size: 16px; line-height: 1.6; font-feature-settings: "cv11", "ss01"; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;}
+img, svg{display: block; max-width: 100%;}
+p{margin: 0; text-wrap: pretty;}
+a{color: var(--color-primary); text-underline-offset: 3px; text-decoration-thickness: 1px; transition: color var(--dur-micro) var(--ease-out);}
+a:hover{color: var(--color-ink);}
+:focus-visible{outline: 2px solid var(--color-focus); outline-offset: 3px; border-radius: 6px;}
+code, pre, kbd{font-family: var(--font-mono);}
+code{font-size: .88em;}
+b, strong{font-weight: 600;}
+::selection{background: color-mix(in oklch, var(--color-primary) 38%, transparent); color: var(--color-ink);}
+h1, h2, h3{font-style: normal; overflow-wrap: anywhere; min-width: 0;}
+.wrap{max-width: var(--page-max); margin: 0 auto; padding: 0 var(--gutter);}
+.skip{position: absolute; left: var(--space-md); top: -60px; z-index: 400; background: var(--color-ink); color: var(--color-paper); padding: 10px 16px; border-radius: var(--radius-control); font-weight: 600; text-decoration: none;}
+.skip:focus{top: var(--space-md);}
+
+/* ── Nav · N1b, frosted ─────────────────────────────── */
+nav[aria-label="Main"]{position: sticky; top: 0; z-index: 300; background: color-mix(in oklch, var(--color-paper) 78%, transparent); -webkit-backdrop-filter: blur(16px) saturate(140%); backdrop-filter: blur(16px) saturate(140%); border-bottom: 1px solid color-mix(in oklch, var(--color-rule) 70%, transparent);}
+nav[aria-label="Main"] .wrap{display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: var(--space-lg); height: var(--nav-h);}
+.brand{justify-self: start; display: inline-flex; align-items: center; gap: 10px; color: var(--color-ink); text-decoration: none; font-family: var(--font-display); font-weight: 600; font-size: 17px; letter-spacing: -.01em; line-height: 1; white-space: nowrap;}
+.brand img{width: 28px; height: 28px;}
+.brand:hover{color: var(--color-ink);}
+nav .links{justify-self: center; display: flex; align-items: center; gap: 2px; padding: 4px; border: 1px solid var(--color-rule); border-radius: var(--radius-pill); background: color-mix(in oklch, var(--color-panel) 70%, transparent);}
+nav .links a{color: var(--color-ink-2); text-decoration: none; font-size: 13.5px; font-weight: 500; line-height: 1; white-space: nowrap; padding: 8px 12px; border-radius: var(--radius-pill); transition: color var(--dur-micro) var(--ease-out), background-color var(--dur-micro) var(--ease-out);}
+nav .links a:hover{color: var(--color-ink); background: var(--color-panel-2);}
+nav .links a[aria-current]{color: var(--color-ink); background: color-mix(in oklch, var(--color-surface) 70%, var(--color-panel));}
+.gh{justify-self: end; display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 14px; border-radius: var(--radius-control); background: var(--color-ink); color: var(--color-paper); text-decoration: none; font-size: 14px; font-weight: 600; line-height: 1; white-space: nowrap; transition: background-color var(--dur-micro) var(--ease-out), transform var(--dur-micro) var(--ease-out);}
+.gh:hover{background: var(--color-primary); color: var(--color-primary-ink);}
+.gh:active{transform: translateY(1px);}
+
+/* ── Hero · split diptych ──────────────────────────── */
+.hero{position: relative; padding: 24px 0 40px; isolation: isolate;}
+.hero::before{content: ""; position: absolute; z-index: -1; inset: -120px 0 auto; height: 760px; pointer-events: none; background: radial-gradient(38% 46% at 74% 34%, color-mix(in oklch, var(--color-surface) 70%, transparent), transparent 72%), radial-gradient(30% 36% at 12% 10%, color-mix(in oklch, var(--color-primary) 9%, transparent), transparent 70%);}
+.hero .wrap{position: relative; display: grid; grid-template-columns: minmax(0, 1.12fr) minmax(0, .88fr); gap: var(--space-xl); align-items: start;}
+.hero .wrap > *{min-width: 0;}
+.hero .wrap > div:first-child{padding-top: var(--space-md);}
+.eyebrow, .kicker{font-family: var(--font-mono); font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; line-height: 1.4;}
+.eyebrow{display: inline-flex; align-items: center; gap: 10px; color: var(--color-ink-2);}
+.eyebrow::before{content: ""; flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--color-green); box-shadow: 0 0 0 3px var(--green-a);}
+h1{font-family: var(--font-display); font-weight: 500; font-size: var(--text-display); line-height: 1.04; letter-spacing: -.028em; margin: var(--space-lg) 0 var(--space-lg); text-wrap: balance;}
+h1 .thin, h2 .thin{font-weight: 500; color: var(--color-ink-2);}
+.lede{font-size: var(--fs-lede); line-height: 1.6; color: var(--color-ink-2); max-width: 60ch; margin: 0 0 var(--space-lg);}
+.lede a{color: var(--color-ink);}
+.cta{display: flex; gap: var(--space-sm); flex-wrap: wrap; align-items: center;}
+.btn{display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 46px; padding: 0 20px; border-radius: var(--radius-control); border: 1px solid transparent; font-family: var(--font-body); font-weight: 600; font-size: 15px; line-height: 1; white-space: nowrap; text-decoration: none; transition: transform var(--dur-micro) var(--ease-out), background-color var(--dur-micro) var(--ease-out), border-color var(--dur-micro) var(--ease-out), color var(--dur-micro) var(--ease-out);}
+.btn:active{transform: translateY(1px);}
+.btn-primary{background: var(--color-primary); color: var(--color-primary-ink);}
+.btn-primary:hover{background: var(--color-ink); color: var(--color-paper);}
+.btn-ghost{border-color: var(--color-rule-strong); color: var(--color-ink); background: transparent;}
+.btn-ghost:hover{border-color: var(--color-primary); color: var(--color-ink); background: color-mix(in oklch, var(--color-surface) 40%, transparent);}
+.hero .chips{list-style: none; margin-left: 0; margin-right: 0; margin-bottom: 0; padding-left: 0; padding-right: 0; display: flex; flex-wrap: wrap; gap: var(--space-xs); margin-top: var(--space-xl); padding-top: var(--space-lg); border-top: 1px solid var(--color-rule);}
+.chip{font-size: 13px; color: var(--color-ink-2); border: 1px solid var(--color-rule); border-radius: var(--radius-pill); padding: 5px 12px; line-height: 1.3;}
+.hero .install{margin: 0 0 var(--space-lg);}
+@keyframes hm-mask{from{clip-path: inset(0 0 55% 0); transform: translateY(12px);} to{clip-path: inset(0 0 -12% 0); transform: none;}}
+@keyframes hm-in{from{opacity: 0; transform: translateY(10px);} to{opacity: 1; transform: none;}}
+.hero .eyebrow, .hero h1, .hero .lede, .hero .install, .hero .cta, .hero .chips, .hero-stage{animation: hm-in var(--dur-long) var(--ease-out) both;}
+.hero h1{animation-name: hm-mask; animation-duration: 640ms;}
+.hero .lede{animation-delay: 160ms;} .hero .install{animation-delay: 220ms;} .hero .cta{animation-delay: 280ms;} .hero .chips{animation-delay: 340ms;} .hero-stage{animation-delay: 220ms;}
+.hero-stage pre{white-space: pre-wrap; overflow-wrap: anywhere;}
+.hero-stage{display: grid; gap: var(--space-lg); padding-top: var(--space-md);}
+
+/* ── Sections ──────────────────────────────────────── */
+section{position: relative; padding: var(--sec-pad) 0;}
+section.act{padding-top: var(--sec-pad-act); border-top: 1px solid var(--color-rule);}
+section.tint{background: var(--color-paper-2);}
+.sec-head{display: block; max-width: 780px; margin: 0 0 var(--space-xl);}
+.kicker{display: block; color: var(--color-ink-2);}
+.sec-head .kicker{margin-bottom: var(--space-md);}
+h2{font-family: var(--font-display); font-size: var(--text-h2); font-weight: 500; letter-spacing: -.024em; line-height: 1.06; margin: 0 0 var(--space-md); text-wrap: balance;}
+.sub{color: var(--color-ink-2); font-size: var(--fs-sub); line-height: 1.6; max-width: 64ch; margin: 0;}
+.sub a{color: var(--color-ink);}
+h3{font-family: var(--font-display); font-size: var(--fs-h3); font-weight: 600; letter-spacing: -.012em; line-height: 1.3; margin: 0 0 var(--space-xs); text-wrap: balance;}
+section > .wrap > * + *{margin-top: var(--block-gap);}
+section > .wrap > .sec-head + *{margin-top: 0;}
+@media (min-width: 961px){
+  .sec-head{display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr); column-gap: var(--space-2xl); align-items: end; max-width: none;}
+  .sec-head h2{margin-bottom: 0;}
+  .sec-head .kicker{grid-column: 1 / -1;}
+  .sec-head .sub{padding-bottom: 6px;}
+}
+
+/* ── Shared surfaces ───────────────────────────────── */
+.grid{display: grid; gap: var(--space-md);}
+.card{background: var(--color-panel); border: 1px solid var(--color-rule); border-radius: var(--radius-card); padding: var(--space-lg); display: flex; flex-direction: column; gap: var(--space-xs); min-width: 0;}
+.card h3{margin: 0;}
+.card p{color: var(--color-ink-2); margin: 0; font-size: var(--fs-small); line-height: 1.6;}
+.card .tag{font-family: var(--font-mono); font-size: 11.5px; font-weight: 600; color: var(--color-ink-3); letter-spacing: .06em; text-transform: uppercase;}
+.card.is-surface{background: color-mix(in oklch, var(--color-surface) 34%, var(--color-panel)); border-color: color-mix(in oklch, var(--color-surface) 60%, var(--color-rule));}
+.card.is-surface p{color: var(--color-ink-on-surface);}
+.card.is-surface .tag{color: var(--color-primary);}
+.card code{color: var(--color-ink); font-size: 12.5px; overflow-wrap: anywhere;}
+.g2{grid-template-columns: repeat(2, minmax(0, 1fr));}
+.g3{grid-template-columns: repeat(3, minmax(0, 1fr));}
+.g4{grid-template-columns: repeat(4, minmax(0, 1fr));}
+table{width: 100%; border-collapse: collapse; font-size: var(--fs-small);}
+th, td{text-align: left; padding: 12px 16px; border-bottom: 1px solid var(--color-rule); vertical-align: top;}
+tr:last-child td{border-bottom: 0;}
+th{font-family: var(--font-mono); font-size: 11.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--color-ink-3); white-space: nowrap; background: var(--color-paper-2);}
+td{color: var(--color-ink-2);}
+td:first-child{color: var(--color-ink); font-weight: 500;}
+td code{color: var(--color-ink);}
+.table-wrap{overflow-x: auto; border: 1px solid var(--color-rule); border-radius: var(--radius-card); background: var(--color-panel);}
+.table-wrap table{min-width: 640px;}
+.note{font-size: var(--fs-micro); color: var(--color-ink-3); max-width: 72ch; line-height: 1.6;}
+.note code{color: var(--color-ink-2);}
+pre{background: var(--color-term); border: 1px solid var(--color-rule); border-radius: var(--radius-card); padding: var(--space-lg); overflow-x: auto; font-size: 13px; line-height: 1.7; color: var(--color-term-ink); margin: 0; tab-size: 2; max-width: 100%;}
+pre.label-first{border-top-left-radius: 0; border-top-right-radius: 0; border-top: 0;}
+.c{color: var(--color-term-comment);}
+.k{color: var(--color-primary);}
+.s{color: var(--color-amber);}
+.host{padding: var(--space-md) var(--space-lg); border: 1px solid var(--color-rule); border-radius: var(--radius-card); background: color-mix(in oklch, var(--color-surface) 32%, var(--color-panel)); color: var(--color-ink-on-surface); font-size: 14.5px; line-height: 1.6;}
+.host b{color: var(--color-ink);}
+.host b::before{content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 2px; background: var(--color-amber); margin-right: 8px; vertical-align: 1px;}
+.host a{color: var(--color-ink);}
+.pill-row{display: flex; flex-wrap: wrap; gap: var(--space-xs); margin: 0; padding: 0; list-style: none;}
+
+/* ── Who · two ways in ─────────────────────────────── */
+.who .card{padding: var(--space-lg) var(--space-lg) var(--space-xl);}
+.who h3{font-size: 22px;}
+.who ul{margin: var(--space-sm) 0 0; padding-left: 20px; color: var(--color-ink-2); font-size: var(--fs-small); display: grid; gap: var(--space-xs);}
+.who li::marker{color: var(--color-ink-3);}
+.who li b{color: var(--color-ink); font-weight: 600;}
+.who .is-surface ul{color: var(--color-ink-on-surface);}
+
+/* ── Setup · ruled steps ───────────────────────────── */
+.steps{display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-lg); counter-reset: st; padding: 0; margin: 0; list-style: none;}
+.steps li{position: relative; padding-top: var(--space-md); border-top: 1px solid var(--color-rule-strong); min-width: 0;}
+.steps li::before{content: ""; position: absolute; top: -5px; left: 0; width: 9px; height: 9px; border-radius: 50%; background: var(--color-primary);}
+.steps h3{font-size: 18px;}
+.steps p{color: var(--color-ink-2); font-size: var(--fs-small);}
+.steps code{color: var(--color-ink);}
+
+/* ── Connect · the bench ───────────────────────────── */
+.snips{display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-lg); align-items: start;}
+.snip{min-width: 0; display: grid; gap: var(--space-sm); align-content: start;}
+.snip .label{display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px var(--space-sm); margin: 0;}
+.snip .label h3{margin: 0;}
+.snip .where{font-family: var(--font-mono); font-size: 12px; color: var(--color-ink-3); overflow-wrap: anywhere;}
+.snip p{color: var(--color-ink-2); font-size: var(--fs-small);}
+.snip p code{color: var(--color-ink);}
+.snip.wide{grid-column: 1 / -1;}
+
+/* ── Tools · grouped as the code groups them ───────── */
+.tgrid{column-count: 3; column-gap: var(--space-md);}
+.tg{break-inside: avoid; margin: 0 0 var(--space-md); border: 1px solid var(--color-rule); border-radius: var(--radius-card); background: var(--color-panel); padding: var(--space-lg); min-width: 0;}
+.tg > header{display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 2px var(--space-sm); margin-bottom: var(--space-xs);}
+.tg h3{margin: 0; font-size: 18px;}
+.tg .src{font-family: var(--font-mono); font-size: 11.5px; color: var(--color-ink-3);}
+.tg > p{color: var(--color-ink-2); font-size: var(--fs-small); margin-bottom: var(--space-xs);}
+.tg ul{list-style: none; margin: 0; padding: 0;}
+.tool{padding: var(--space-sm) 0; border-top: 1px solid var(--color-rule);}
+.tool:first-child{border-top: 0;}
+.tool .n{display: flex; flex-wrap: wrap; align-items: center; gap: 4px var(--space-xs);}
+.tool code{font-size: 13px; font-weight: 600; color: var(--color-ink); overflow-wrap: anywhere;}
+.tool .cmd{font-family: var(--font-mono); font-size: 11.5px; color: var(--color-ink-3);}
+.tool p{color: var(--color-ink-2); font-size: 14px; line-height: 1.5; margin-top: 2px;}
+.tool .m{display: block; margin-top: 4px; font-family: var(--font-mono); font-size: 11px; letter-spacing: .02em; color: var(--color-ink-3);}
+.badge{font-family: var(--font-mono); font-size: 10.5px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; padding: 1px 7px; border-radius: var(--radius-pill); border: 1px solid var(--color-rule-strong); color: var(--color-ink-2); line-height: 1.5;}
+.badge.write{color: var(--color-amber); border-color: color-mix(in oklch, var(--color-amber) 45%, transparent);}
+.badge.destructive{color: var(--color-rose); border-color: color-mix(in oklch, var(--color-rose) 50%, transparent);}
+
+/* ── CLI ───────────────────────────────────────────── */
+.cli-grid{display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-lg); align-items: start;}
+.cli-grid .snip pre{font-size: 12.5px;}
+
+/* ── Keys ──────────────────────────────────────────── */
+.keys td:nth-child(2) code, .keys td:first-child code{color: var(--color-primary);}
+.keys .yes{color: var(--color-green); font-weight: 600;}
+.keys .rare{color: var(--color-amber); font-weight: 600;}
+.keys .no{color: var(--color-rose); font-weight: 600;}
+.keys td{min-width: 150px;}
+.keys td:first-child{min-width: 130px;}
+.pick{display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-md);}
+
+/* ── Security ──────────────────────────────────────── */
+.sec-list{display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0; border-top: 1px solid var(--color-rule); padding: 0; margin: 0; list-style: none;}
+.sec-list li{padding: var(--space-lg) var(--space-lg) var(--space-lg) 0; border-bottom: 1px solid var(--color-rule); min-width: 0;}
+.sec-list li:nth-child(even){padding-left: var(--space-lg); border-left: 1px solid var(--color-rule);}
+.sec-list b{display: block; color: var(--color-ink); margin-bottom: var(--space-2xs); font-weight: 600;}
+.sec-list span{color: var(--color-ink-2); font-size: var(--fs-small);}
+.sec-list code{color: var(--color-ink);}
+
+/* ── Footer statement + the chrome logo mark ───────── */
+footer{border-top: 1px solid var(--color-rule); padding: var(--sec-pad-act) 0 var(--space-xl); color: var(--color-ink-3); font-size: 14px; position: relative; isolation: isolate; overflow: hidden;}
+footer::before{content: ""; position: absolute; z-index: -1; inset: 0 0 auto; height: 520px; pointer-events: none; background: radial-gradient(44% 70% at 18% 0%, color-mix(in oklch, var(--color-surface) 58%, transparent), transparent 72%);}
+.final{padding: 0 0 var(--space-3xl);}
+.final .kicker{color: var(--color-primary); margin-bottom: var(--space-md);}
+.final h2{color: var(--color-ink); font-size: clamp(2.5rem, 4.4vw + 1rem, 4.5rem); line-height: 1.02; letter-spacing: -.032em; max-width: 16ch; margin-bottom: var(--space-lg);}
+.final .sub{color: var(--color-ink-2); max-width: 58ch; margin-bottom: var(--space-xl);}
+footer .foot-meta{display: flex; gap: var(--space-md) var(--space-lg); flex-wrap: wrap; justify-content: space-between; align-items: baseline; padding-top: var(--space-lg); border-top: 1px solid var(--color-rule);}
+footer .foot-meta a{color: var(--color-ink-2); white-space: nowrap;}
+footer .foot-meta a:hover{color: var(--color-ink);}
+footer .foot-links{display: flex; flex-wrap: wrap; gap: var(--space-xs) var(--space-lg);}
+
+/* chrome logo: parts are named groups in the inline svg; state-driven, paused off-screen */
+.lm{margin: 0; justify-self: center; width: min(100%, 300px); aspect-ratio: 1; position: relative; isolation: isolate;}
+.lm::before{content: ""; position: absolute; inset: 6%; z-index: -1; border-radius: 50%; background: radial-gradient(closest-side, color-mix(in oklch, var(--color-primary) 15%, transparent), transparent 72%); pointer-events: none;}
+.lm-svg{display: block; width: 100%; height: 100%; overflow: visible; position: relative;}
+.lm-ring{position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; transform-origin: 50% 50.71%;}
+.lm-gear-teeth{fill: none; stroke: color-mix(in oklch, var(--color-primary) 32%, transparent); stroke-width: 9; stroke-dasharray: 1.6 3.4;}
+.lm-gear-ring{fill: none; stroke: color-mix(in oklch, var(--color-primary) 28%, transparent); stroke-width: 1;}
+.lm-gear-index{fill: none; stroke: color-mix(in oklch, var(--color-primary) 70%, transparent); stroke-width: 2.5; stroke-linecap: round;}
+.lm-scan circle{fill: none; stroke: var(--color-primary); stroke-width: 2; stroke-dasharray: 9 91; stroke-linecap: round; opacity: .65;}
+.lm-frame-upper, .lm-frame-lower, .lm-pipe path{stroke-dasharray: 1; stroke-dashoffset: 0;}
+.lm-block-top, .lm-block-mid, .lm-block-bottom{transform-box: view-box; transform-origin: 0 0;}
+.lm-sphere, .lm-bloom{transform-box: fill-box; transform-origin: center;}
+@keyframes lm-draw{from{stroke-dashoffset: 1;} to{stroke-dashoffset: 0;}}
+@keyframes lm-clunk{0%{transform: translateX(-44px); opacity: 0;} 45%{opacity: 1;} 62%{transform: translateX(3px);} 78%{transform: translateX(-1px);} 100%{transform: none; opacity: 1;}}
+@keyframes lm-fade{from{opacity: 0;} to{opacity: 1;}}
+@keyframes lm-ignite{0%{transform: scale(.2); opacity: 0;} 60%{transform: scale(1.05); opacity: 1;} 100%{transform: none; opacity: 1;}}
+@keyframes lm-bloom{0%{opacity: 0; transform: scale(.4);} 45%{opacity: 1; transform: scale(1.4);} 100%{opacity: .5; transform: none;}}
+@keyframes lm-breathe{0%, 100%{opacity: .42; transform: none;} 50%{opacity: .8; transform: scale(1.12);}}
+@keyframes lm-spin{to{transform: rotate(360deg);}}
+.lm[data-state="armed"] :is(.lm-frame-upper, .lm-frame-lower, .lm-pipe path){stroke-dashoffset: 1;}
+.lm[data-state="armed"] :is(.lm-block-top, .lm-block-mid, .lm-block-bottom){opacity: 0; transform: translateX(-44px);}
+.lm[data-state="armed"] :is(.lm-well, .lm-well-ao, .lm-frame-detail, .lm-couplings, .lm-gear, .lm-scan, .lm-sphere, .lm-bloom){opacity: 0;}
+.lm[data-state="assemble"] :is(.lm-well, .lm-well-ao){animation: lm-fade .5s var(--ease-out) both;}
+.lm[data-state="assemble"] .lm-frame-upper{animation: lm-draw .7s var(--ease-in) .1s both;}
+.lm[data-state="assemble"] .lm-frame-lower{animation: lm-draw .7s var(--ease-out) .8s both;}
+.lm[data-state="assemble"] .lm-frame-detail{animation: lm-fade .5s var(--ease-out) 1.35s both;}
+.lm[data-state="assemble"] :is(.lm-block-top, .lm-block-mid, .lm-block-bottom){animation: lm-clunk .52s cubic-bezier(.7, 0, .2, 1) calc(1s + var(--i) * .16s) both;}
+.lm[data-state="assemble"] .lm-pipe path{animation: lm-draw .45s var(--ease-out) calc(1.6s + var(--i) * .12s) both;}
+.lm[data-state="assemble"] .lm-couplings{animation: lm-fade .3s var(--ease-out) 1.9s both;}
+.lm[data-state="assemble"] .lm-sphere{animation: lm-ignite .7s var(--ease-out) 2.2s both;}
+.lm[data-state="assemble"] .lm-bloom{animation: lm-bloom 1.1s var(--ease-out) 2.2s both;}
+.lm[data-state="assemble"] :is(.lm-gear, .lm-scan){animation: lm-fade .8s var(--ease-out) 2.4s both;}
+.lm[data-state="live"] .lm-bloom{animation: lm-breathe 3.4s var(--ease-in-out) infinite;}
+.lm[data-state="live"] .lm-gear{animation: lm-spin 43.2s steps(72) infinite;}
+.lm[data-state="live"] .lm-scan{animation: lm-spin 9s linear infinite;}
+.lm.is-paused *{animation-play-state: paused !important;}
+
+/* ── Responsive ────────────────────────────────────── */
+@media (max-width: 1100px){
+  html{scroll-padding-top: 124px;}
+  nav[aria-label="Main"] .wrap{display: flex; flex-wrap: wrap; height: auto; padding-top: 10px; row-gap: 0;}
+  nav[aria-label="Main"] .gh{margin-left: auto; height: 34px;}
+  nav .links{order: 3; flex: 0 0 calc(100% + 2 * var(--gutter)); margin: 10px calc(-1 * var(--gutter)) 0; padding: 0 var(--gutter); height: 48px; border: 0; border-top: 1px solid var(--color-rule); border-radius: 0; background: transparent; gap: var(--space-2xs); overflow-x: auto; scrollbar-width: none; -webkit-mask-image: linear-gradient(90deg, transparent 0, var(--color-paper) var(--gutter), var(--color-paper) calc(100% - 32px), transparent); mask-image: linear-gradient(90deg, transparent 0, var(--color-paper) var(--gutter), var(--color-paper) calc(100% - 32px), transparent);}
+  nav .links::-webkit-scrollbar{display: none;}
+  .tgrid{column-count: 2;}
+  .steps{grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: var(--space-xl);}
+}
+@media (max-width: 960px){
+  .hero .wrap{grid-template-columns: minmax(0, 1fr);}
+  .hero-stage{padding-top: 0;}
+  .lm{width: min(64%, 240px);}
+  .g3, .g4, .pick, .snips, .cli-grid{grid-template-columns: minmax(0, 1fr);}
+  .g2{grid-template-columns: minmax(0, 1fr);}
+  .sec-list{grid-template-columns: minmax(0, 1fr);}
+  .sec-list li:nth-child(even){padding-left: 0; border-left: 0;}
+}
+@media (max-width: 700px){
+  .keys table{min-width: 0;}
+  .keys thead{display: none;}
+  .keys tr{display: block; padding: var(--space-sm) 0; border-bottom: 1px solid var(--color-rule);}
+  .keys tr:last-child{border-bottom: 0;}
+  .keys td{display: block; border: 0; padding: 4px var(--space-md); min-width: 0 !important;}
+  .keys td::before{content: attr(data-label); display: block; font-family: var(--font-mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--color-ink-3);}
+  .tgrid{column-count: 1;}
+  .steps{grid-template-columns: minmax(0, 1fr);}
+  :root{--sec-pad-act: 56px;}
+  .btn{height: 48px;}
+  .cta .btn{flex: 1 1 auto;}
+  .lm-ring.lm-scan{display: none;}
+}
+@media (prefers-reduced-motion: reduce){
+  html{scroll-behavior: auto;}
+  .hero .eyebrow, .hero h1, .hero .lede, .hero .install, .hero .cta, .hero .chips, .hero-stage{animation: none;}
+  .lm *{animation: none !important;}
+  .lm :is(.lm-frame-upper, .lm-frame-lower, .lm-pipe path){stroke-dashoffset: 0 !important;}
+  .lm :is(.lm-block-top, .lm-block-mid, .lm-block-bottom, .lm-sphere, .lm-well, .lm-well-ao, .lm-frame-detail, .lm-couplings, .lm-gear, .lm-scan){opacity: 1 !important; transform: none !important;}
+  .lm .lm-bloom{opacity: .55 !important;}
+}
+</style>
+</head>
+<body id="top">
+<a class="skip" href="#main">Skip to content</a>
+<nav aria-label="Main">
+  <div class="wrap">
+    <a class="brand" href="#top"><img src="assets/logo-64.png" alt="" width="32" height="32">cob-rag-mcp</a>
+    <div class="links">
+      <a href="#who">Who it's for</a>
+      <a href="#setup">Setup</a>
+      <a href="#connect">Connect</a>
+      <a href="#tools">Tools</a>
+      <a href="#cli">CLI</a>
+      <a href="#keys">Keys</a>
+      <a href="#security">Security</a>
+    </div>
+    <a class="gh" href="https://github.com/callobuzz/cob-rag-mcp">★ GitHub</a>
+  </div>
+</nav>
+
+<main id="main">
+<section class="hero">
+  <div class="wrap">
+    <div>
+      <div class="eyebrow">MCP server + CLI · for cob-rag-engine · MIT</div>
+      <h1>Your business's knowledge, in every agent.</h1>
+      <p class="lede">cob-rag-mcp is an MCP server and a full CLI for <a href="https://callobuzz.github.io/cob-rag-engine">cob-rag-engine</a>, the self-hosted knowledge layer for AI assistants and agents. Plug a business's own knowledge base into Claude, Cursor, VS Code, n8n or any MCP client, or work with it straight from the shell. One set of 52 tools, two ways in.</p>
+<pre class="install" tabindex="0" aria-label="Install and first commands"><span class="c"># run the MCP server, nothing to install</span>
+<span class="k">npx</span> -y cob-rag-mcp start
+
+<span class="c"># or install both commands, then sign in</span>
+<span class="k">npm</span> i -g cob-rag-mcp
+<span class="k">cob-rag-engine</span> login --url http://127.0.0.1:8000 --key ck_...</pre>
+      <div class="cta">
+        <a class="btn btn-primary" href="#connect">Connect a client</a>
+        <a class="btn btn-ghost" href="https://www.npmjs.com/package/cob-rag-mcp">View on npm</a>
+      </div>
+      <ul class="chips pill-row" aria-label="At a glance">
+        <li class="chip">Node.js 22+</li>
+        <li class="chip">stdio and streamable HTTP</li>
+        <li class="chip">Scoped by the key you hand it</li>
+        <li class="chip">You host the engine</li>
+      </ul>
+    </div>
+    <div class="hero-stage">
+      <figure class="lm" data-state="live" aria-hidden="true">
+<svg class="lm-ring lm-gear" viewBox="-24 -24 560 560" focusable="false"><circle class="lm-gear-teeth" cx="256" cy="260" r="252" pathLength="360"/><circle class="lm-gear-ring" cx="256" cy="260" r="243"/><path class="lm-gear-index" d="M256 2 V20 M256 500 V518 M-2 260 H16 M496 260 H514"/></svg>
+<svg class="lm-ring lm-scan" viewBox="-24 -24 560 560" focusable="false"><circle cx="256" cy="260" r="232" pathLength="100"/></svg>
+<svg class="lm-svg" viewBox="-24 -24 560 560" focusable="false">
+<defs>
+<linearGradient id="lm-grad-band" gradientUnits="userSpaceOnUse" x1="60" y1="60" x2="450" y2="470"><stop offset="0" stop-color="#ffffff"/><stop offset="0.16" stop-color="#e3edf6"/><stop offset="0.27" stop-color="#ffffff"/><stop offset="0.275" stop-color="#b7cadb"/><stop offset="0.36" stop-color="#eaf3fa"/><stop offset="0.46" stop-color="#bff6ff"/><stop offset="0.5" stop-color="#ffffff"/><stop offset="0.505" stop-color="#2cc8ef"/><stop offset="0.62" stop-color="#13a9e3"/><stop offset="0.72" stop-color="#1f74e6"/><stop offset="0.76" stop-color="#7fb6ff"/><stop offset="0.765" stop-color="#1f62e0"/><stop offset="1" stop-color="#10318f"/></linearGradient>
+<linearGradient id="lm-grad-side" gradientUnits="userSpaceOnUse" x1="0" y1="60" x2="0" y2="480"><stop offset="0" stop-color="#0e2a6e"/><stop offset="1" stop-color="#081a4a"/></linearGradient>
+<linearGradient id="lm-grad-bevel-out" gradientUnits="userSpaceOnUse" x1="70" y1="60" x2="440" y2="470"><stop offset="0" stop-color="#ffffff" stop-opacity="0.95"/><stop offset="0.5" stop-color="#ffffff" stop-opacity="0.35"/><stop offset="1" stop-color="#081a4a" stop-opacity="0.7"/></linearGradient>
+<linearGradient id="lm-grad-bevel-in" gradientUnits="userSpaceOnUse" x1="100" y1="95" x2="400" y2="425"><stop offset="0" stop-color="#081a4a" stop-opacity="0.85"/><stop offset="0.55" stop-color="#10318f" stop-opacity="0.4"/><stop offset="1" stop-color="#bff6ff" stop-opacity="0.75"/></linearGradient>
+<radialGradient id="lm-grad-well" cx=".45" cy=".42" r=".62"><stop offset="0" stop-color="#0a1630"/><stop offset="1" stop-color="#04060f"/></radialGradient>
+<linearGradient id="lm-grad-block" gradientUnits="userSpaceOnUse" x1="110" y1="120" x2="300" y2="410"><stop offset="0" stop-color="#b8f5ff"/><stop offset="0.2" stop-color="#52d8f7"/><stop offset="0.34" stop-color="#37c1f2"/><stop offset="0.345" stop-color="#b4f1ff"/><stop offset="0.38" stop-color="#3fb6f3"/><stop offset="0.62" stop-color="#2477ea"/><stop offset="0.625" stop-color="#6fb0ff"/><stop offset="0.66" stop-color="#1f5fe0"/><stop offset="1" stop-color="#1742b8"/></linearGradient>
+<linearGradient id="lm-grad-bevel-block" gradientUnits="userSpaceOnUse" x1="110" y1="120" x2="300" y2="410"><stop offset="0" stop-color="#ffffff" stop-opacity="0.9"/><stop offset="0.5" stop-color="#ffffff" stop-opacity="0.25"/><stop offset="1" stop-color="#081a4a" stop-opacity="0.6"/></linearGradient>
+<linearGradient id="lm-grad-pipe" gradientUnits="userSpaceOnUse" x1="300" y1="190" x2="430" y2="330"><stop offset="0" stop-color="#2a86f0"/><stop offset="1" stop-color="#1f5fe0"/></linearGradient>
+<radialGradient id="lm-grad-bolt" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#ffffff"/><stop offset="0.45" stop-color="#b7cadb"/><stop offset="1" stop-color="#10318f"/></radialGradient>
+<linearGradient id="lm-grad-collar" gradientUnits="userSpaceOnUse" x1="0" y1="-11" x2="0" y2="11"><stop offset="0" stop-color="#ffffff"/><stop offset="0.35" stop-color="#b7cadb"/><stop offset="0.36" stop-color="#1f74e6"/><stop offset="1" stop-color="#10318f"/></linearGradient>
+<radialGradient id="lm-grad-sphere" cx=".38" cy=".32" r=".78"><stop offset="0" stop-color="#f2feff"/><stop offset="0.18" stop-color="#a5f3fc"/><stop offset="0.46" stop-color="#22d3ee"/><stop offset="0.78" stop-color="#0891b2"/><stop offset="1" stop-color="#0b3a66"/></radialGradient>
+<radialGradient id="lm-grad-core" cx=".56" cy=".62" r=".5"><stop offset="0" stop-color="#a5f3fc" stop-opacity="0.8"/><stop offset="1" stop-color="#22d3ee" stop-opacity="0"/></radialGradient>
+<linearGradient id="lm-grad-rim" gradientUnits="objectBoundingBox" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffffff" stop-opacity="0"/><stop offset="0.55" stop-color="#ffffff" stop-opacity="0"/><stop offset="1" stop-color="#bff6ff" stop-opacity="0.95"/></linearGradient>
+<pattern id="lm-brush" patternUnits="userSpaceOnUse" width="5" height="3" patternTransform="rotate(-24)"><rect width="5" height="1" fill="#ffffff" fill-opacity=".07"/></pattern>
+<clipPath id="lm-clip-sphere"><circle cx="452" cy="273" r="33"/></clipPath>
+<radialGradient id="lm-grad-bloom"><stop offset="0" stop-color="#22d3ee" stop-opacity="0.9"/><stop offset="0.35" stop-color="#22d3ee" stop-opacity="0.45"/><stop offset="0.7" stop-color="#22d3ee" stop-opacity="0.12"/><stop offset="1" stop-color="#22d3ee" stop-opacity="0"/></radialGradient>
+</defs>
+
+<path class="lm-well" d="M398 176.6 L250 93 L102 176.6 V343.4 L250 427 L398 343.4 Z" fill="url(#lm-grad-well)"/>
+<path class="lm-well-ao" d="M398 238 V176.6 L250 93 L102 176.6 V343.4 L250 427 L398 343.4 V306" fill="none" stroke="#04060f" stroke-width="16" stroke-opacity=".35"/><path class="lm-well-ao" d="M398 238 V176.6 L250 93 L102 176.6 V343.4 L250 427 L398 343.4 V306" fill="none" stroke="#04060f" stroke-width="8" stroke-opacity=".6"/>
+<g id="lm-frame" class="lm-frame">
+<g class="lm-frame-side" transform="translate(6 8)"><path class="lm-frame-sideband lm-frame-upper" pathLength="1" d="M418 238 V165 L250 70 L82 165 V260" fill="none" stroke="url(#lm-grad-side)" stroke-width="40" stroke-linejoin="round"/><path class="lm-frame-sideband lm-frame-lower" pathLength="1" d="M82 260 V355 L250 450 L418 355 V306" fill="none" stroke="url(#lm-grad-side)" stroke-width="40" stroke-linejoin="round"/></g>
+<g class="lm-frame-face"><path class="lm-frame-band lm-frame-upper" pathLength="1" d="M418 238 V165 L250 70 L82 165 V260" fill="none" stroke="url(#lm-grad-band)" stroke-width="40" stroke-linejoin="round"/><path class="lm-frame-band lm-frame-lower" pathLength="1" d="M82 260 V355 L250 450 L418 355 V306" fill="none" stroke="url(#lm-grad-band)" stroke-width="40" stroke-linejoin="round"/></g>
+<g class="lm-frame-detail">
+<path class="lm-frame-bevel-out" d="M438 238 V153.4 L250 47 L62 153.4 V366.6 L250 473 L438 366.6 V306" fill="none" stroke="url(#lm-grad-bevel-out)" stroke-width="2" stroke-linejoin="round"/>
+<path class="lm-frame-bevel-in" d="M398 238 V176.6 L250 93 L102 176.6 V343.4 L250 427 L398 343.4 V306" fill="none" stroke="url(#lm-grad-bevel-in)" stroke-width="2.2" stroke-linejoin="round"/>
+<path class="lm-frame-lip" d="M398 238 V176.6 L250 93 L102 176.6 V343.4 L250 427 L398 343.4 V306" transform="translate(3 3)" fill="none" stroke="#ffffff" stroke-opacity=".22" stroke-width="1"/>
+<path class="lm-frame-shade" d="M400 232 V176 L262 98" fill="none" stroke="#10318f" stroke-opacity=".6" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+<path class="lm-frame-gloss" d="M70 168 L244 70" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round"/>
+<g class="lm-frame-seams"><path d="M61 260 H103" fill="none" stroke="#081a4a" stroke-opacity=".55" stroke-width="2"/><path d="M61 260 H103" transform="translate(1.5 1.5)" fill="none" stroke="#ffffff" stroke-opacity=".45" stroke-width="1"/><path d="M156 99.5 L176 135.5" fill="none" stroke="#081a4a" stroke-opacity=".55" stroke-width="2"/><path d="M156 99.5 L176 135.5" transform="translate(1.5 1.5)" fill="none" stroke="#ffffff" stroke-opacity=".45" stroke-width="1"/><path d="M156 420.5 L176 384.5" fill="none" stroke="#081a4a" stroke-opacity=".55" stroke-width="2"/><path d="M156 420.5 L176 384.5" transform="translate(1.5 1.5)" fill="none" stroke="#ffffff" stroke-opacity=".45" stroke-width="1"/><path d="M324 135.5 L344 99.5" fill="none" stroke="#081a4a" stroke-opacity=".55" stroke-width="2"/><path d="M324 135.5 L344 99.5" transform="translate(1.5 1.5)" fill="none" stroke="#ffffff" stroke-opacity=".45" stroke-width="1"/><path d="M324 384.5 L344 420.5" fill="none" stroke="#081a4a" stroke-opacity=".55" stroke-width="2"/><path d="M324 384.5 L344 420.5" transform="translate(1.5 1.5)" fill="none" stroke="#ffffff" stroke-opacity=".45" stroke-width="1"/></g>
+<g class="lm-frame-bolts"><circle cx="250" cy="70" r="6" fill="url(#lm-grad-bolt)" stroke="#081a4a" stroke-width="1.5"/><path d="M247 70 H253" stroke="#081a4a" stroke-opacity=".7" stroke-width="1.2" stroke-linecap="round"/><circle cx="82" cy="165" r="6" fill="url(#lm-grad-bolt)" stroke="#081a4a" stroke-width="1.5"/><path d="M79 165 H85" stroke="#081a4a" stroke-opacity=".7" stroke-width="1.2" stroke-linecap="round"/><circle cx="82" cy="355" r="6" fill="url(#lm-grad-bolt)" stroke="#081a4a" stroke-width="1.5"/><path d="M79 355 H85" stroke="#081a4a" stroke-opacity=".7" stroke-width="1.2" stroke-linecap="round"/><circle cx="250" cy="450" r="6" fill="url(#lm-grad-bolt)" stroke="#081a4a" stroke-width="1.5"/><path d="M247 450 H253" stroke="#081a4a" stroke-opacity=".7" stroke-width="1.2" stroke-linecap="round"/><circle cx="418" cy="165" r="6" fill="url(#lm-grad-bolt)" stroke="#081a4a" stroke-width="1.5"/><path d="M415 165 H421" stroke="#081a4a" stroke-opacity=".7" stroke-width="1.2" stroke-linecap="round"/><circle cx="418" cy="355" r="6" fill="url(#lm-grad-bolt)" stroke="#081a4a" stroke-width="1.5"/><path d="M415 355 H421" stroke="#081a4a" stroke-opacity=".7" stroke-width="1.2" stroke-linecap="round"/></g>
+</g>
+</g>
+<g id="lm-channels" class="lm-channels">
+<g id="lm-channel-top" class="lm-channel-top lm-pipe" style="--i:0"><path class="lm-pipe-shell" pathLength="1" d="M297 194 H312 Q324 194 332 204 L368 252 Q378 266 392 274" fill="none" stroke="#0a2a66" stroke-width="17" stroke-linecap="round" stroke-linejoin="round"/><path class="lm-pipe-body" pathLength="1" d="M297 194 H312 Q324 194 332 204 L368 252 Q378 266 392 274" fill="none" stroke="url(#lm-grad-pipe)" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/><path class="lm-pipe-hi" pathLength="1" d="M297 194 H312 Q324 194 332 204 L368 252 Q378 266 392 274" fill="none" stroke="#c9f4ff" stroke-opacity=".75" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" transform="translate(0 -3)"/></g>
+<g id="lm-channel-mid" class="lm-channel-mid lm-pipe" style="--i:1"><path class="lm-pipe-shell" pathLength="1" d="M297 274 H392" fill="none" stroke="#0a2a66" stroke-width="17" stroke-linecap="round" stroke-linejoin="round"/><path class="lm-pipe-body" pathLength="1" d="M297 274 H392" fill="none" stroke="url(#lm-grad-pipe)" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/><path class="lm-pipe-hi" pathLength="1" d="M297 274 H392" fill="none" stroke="#c9f4ff" stroke-opacity=".75" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" transform="translate(0 -3)"/></g>
+<g id="lm-channel-bottom" class="lm-channel-bottom lm-pipe" style="--i:2"><path class="lm-pipe-shell" pathLength="1" d="M297 353 H312 Q324 353 332 343 L368 295 Q378 281 392 274" fill="none" stroke="#0a2a66" stroke-width="17" stroke-linecap="round" stroke-linejoin="round"/><path class="lm-pipe-body" pathLength="1" d="M297 353 H312 Q324 353 332 343 L368 295 Q378 281 392 274" fill="none" stroke="url(#lm-grad-pipe)" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/><path class="lm-pipe-hi" pathLength="1" d="M297 353 H312 Q324 353 332 343 L368 295 Q378 281 392 274" fill="none" stroke="#c9f4ff" stroke-opacity=".75" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" transform="translate(0 -3)"/></g>
+<g id="lm-merge" class="lm-merge lm-pipe" style="--i:3"><path class="lm-pipe-shell" pathLength="1" d="M392 274 H420" fill="none" stroke="#0a2a66" stroke-width="17" stroke-linecap="round"/><path class="lm-pipe-body" pathLength="1" d="M392 274 H420" fill="none" stroke="url(#lm-grad-pipe)" stroke-width="11" stroke-linecap="round"/><path class="lm-pipe-hi" pathLength="1" d="M392 274 H420" fill="none" stroke="#c9f4ff" stroke-opacity=".75" stroke-width="3" stroke-linecap="round" transform="translate(0 -3)"/></g>
+<g class="lm-couplings"><rect x="295" y="-11" width="10" height="22" rx="3" transform="translate(0 194)" fill="url(#lm-grad-collar)" stroke="#0a2a66" stroke-width="1.5"/><rect x="295" y="-11" width="10" height="22" rx="3" transform="translate(0 274)" fill="url(#lm-grad-collar)" stroke="#0a2a66" stroke-width="1.5"/><rect x="295" y="-11" width="10" height="22" rx="3" transform="translate(0 353)" fill="url(#lm-grad-collar)" stroke="#0a2a66" stroke-width="1.5"/><rect x="409" y="-11" width="10" height="22" rx="3" transform="translate(0 274)" fill="url(#lm-grad-collar)" stroke="#0a2a66" stroke-width="1.5"/></g>
+</g>
+<g id="lm-block-top" class="lm-block-top" style="--i:0">
+<path class="lm-block-shadow" d="M127 188 L224 136 Q240 128 245 146 L249 164 Q255 186 282 187 L300 187 V201 L258 201 L201 236 Q190 243 178 237 L126 207 Q112 198 127 188 Z" fill="#00040e" fill-opacity=".22" transform="translate(13 17)"/><path class="lm-block-shadow" d="M127 188 L224 136 Q240 128 245 146 L249 164 Q255 186 282 187 L300 187 V201 L258 201 L201 236 Q190 243 178 237 L126 207 Q112 198 127 188 Z" fill="#00040e" fill-opacity=".32" transform="translate(9 12)"/>
+<path class="lm-block-side" d="M127 188 L224 136 Q240 128 245 146 L249 164 Q255 186 282 187 L300 187 V201 L258 201 L201 236 Q190 243 178 237 L126 207 Q112 198 127 188 Z" fill="url(#lm-grad-side)" transform="translate(5 7)"/>
+<path class="lm-block-face" d="M127 188 L224 136 Q240 128 245 146 L249 164 Q255 186 282 187 L300 187 V201 L258 201 L201 236 Q190 243 178 237 L126 207 Q112 198 127 188 Z" fill="url(#lm-grad-block)"/>
+<path class="lm-block-brush" d="M127 188 L224 136 Q240 128 245 146 L249 164 Q255 186 282 187 L300 187 V201 L258 201 L201 236 Q190 243 178 237 L126 207 Q112 198 127 188 Z" fill="url(#lm-brush)"/>
+<path class="lm-block-bevel" d="M127 188 L224 136 Q240 128 245 146 L249 164 Q255 186 282 187 L300 187 V201 L258 201 L201 236 Q190 243 178 237 L126 207 Q112 198 127 188 Z" fill="none" stroke="url(#lm-grad-bevel-block)" stroke-width="1.6" stroke-linejoin="round"/>
+<path class="lm-block-shine" d="M131 185 L222 138" fill="none" stroke="#ffffff" stroke-opacity=".75" stroke-width="2.4" stroke-linecap="round"/>
+</g>
+<g id="lm-block-mid" class="lm-block-mid" style="--i:1">
+<path class="lm-block-shadow" d="M116 222 L186 250 Q192 252 198 248 L226 233 Q238 227 246 238 Q262 262 284 265 L300 265 V283 L284 283 Q262 285 247 306 Q238 318 226 311 L198 296 Q192 293 186 296 L118 324 Q108 328 108 316 V230 Q108 219 116 222 Z" fill="#00040e" fill-opacity=".22" transform="translate(13 17)"/><path class="lm-block-shadow" d="M116 222 L186 250 Q192 252 198 248 L226 233 Q238 227 246 238 Q262 262 284 265 L300 265 V283 L284 283 Q262 285 247 306 Q238 318 226 311 L198 296 Q192 293 186 296 L118 324 Q108 328 108 316 V230 Q108 219 116 222 Z" fill="#00040e" fill-opacity=".32" transform="translate(9 12)"/>
+<path class="lm-block-side" d="M116 222 L186 250 Q192 252 198 248 L226 233 Q238 227 246 238 Q262 262 284 265 L300 265 V283 L284 283 Q262 285 247 306 Q238 318 226 311 L198 296 Q192 293 186 296 L118 324 Q108 328 108 316 V230 Q108 219 116 222 Z" fill="url(#lm-grad-side)" transform="translate(5 7)"/>
+<path class="lm-block-face" d="M116 222 L186 250 Q192 252 198 248 L226 233 Q238 227 246 238 Q262 262 284 265 L300 265 V283 L284 283 Q262 285 247 306 Q238 318 226 311 L198 296 Q192 293 186 296 L118 324 Q108 328 108 316 V230 Q108 219 116 222 Z" fill="url(#lm-grad-block)"/>
+<path class="lm-block-brush" d="M116 222 L186 250 Q192 252 198 248 L226 233 Q238 227 246 238 Q262 262 284 265 L300 265 V283 L284 283 Q262 285 247 306 Q238 318 226 311 L198 296 Q192 293 186 296 L118 324 Q108 328 108 316 V230 Q108 219 116 222 Z" fill="url(#lm-brush)"/>
+<path class="lm-block-bevel" d="M116 222 L186 250 Q192 252 198 248 L226 233 Q238 227 246 238 Q262 262 284 265 L300 265 V283 L284 283 Q262 285 247 306 Q238 318 226 311 L198 296 Q192 293 186 296 L118 324 Q108 328 108 316 V230 Q108 219 116 222 Z" fill="none" stroke="url(#lm-grad-bevel-block)" stroke-width="1.6" stroke-linejoin="round"/>
+<path class="lm-block-shine" d="M117 226 L182 252" fill="none" stroke="#ffffff" stroke-opacity=".75" stroke-width="2.4" stroke-linecap="round"/>
+</g>
+<g id="lm-block-bottom" class="lm-block-bottom" style="--i:2">
+<path class="lm-block-shadow" d="M126 344 L186 314 Q195 309 204 315 L254 346 L300 346 V360 L282 360 Q256 362 249 378 L240 402 Q234 414 222 408 L126 360 Q112 352 126 344 Z" fill="#00040e" fill-opacity=".22" transform="translate(13 17)"/><path class="lm-block-shadow" d="M126 344 L186 314 Q195 309 204 315 L254 346 L300 346 V360 L282 360 Q256 362 249 378 L240 402 Q234 414 222 408 L126 360 Q112 352 126 344 Z" fill="#00040e" fill-opacity=".32" transform="translate(9 12)"/>
+<path class="lm-block-side" d="M126 344 L186 314 Q195 309 204 315 L254 346 L300 346 V360 L282 360 Q256 362 249 378 L240 402 Q234 414 222 408 L126 360 Q112 352 126 344 Z" fill="url(#lm-grad-side)" transform="translate(5 7)"/>
+<path class="lm-block-face" d="M126 344 L186 314 Q195 309 204 315 L254 346 L300 346 V360 L282 360 Q256 362 249 378 L240 402 Q234 414 222 408 L126 360 Q112 352 126 344 Z" fill="url(#lm-grad-block)"/>
+<path class="lm-block-brush" d="M126 344 L186 314 Q195 309 204 315 L254 346 L300 346 V360 L282 360 Q256 362 249 378 L240 402 Q234 414 222 408 L126 360 Q112 352 126 344 Z" fill="url(#lm-brush)"/>
+<path class="lm-block-bevel" d="M126 344 L186 314 Q195 309 204 315 L254 346 L300 346 V360 L282 360 Q256 362 249 378 L240 402 Q234 414 222 408 L126 360 Q112 352 126 344 Z" fill="none" stroke="url(#lm-grad-bevel-block)" stroke-width="1.6" stroke-linejoin="round"/>
+<path class="lm-block-shine" d="M130 342 L186 316" fill="none" stroke="#ffffff" stroke-opacity=".75" stroke-width="2.4" stroke-linecap="round"/>
+</g>
+<circle class="lm-bloom" cx="452" cy="273" r="62" fill="url(#lm-grad-bloom)" opacity=".7"/>
+<g id="lm-sphere" class="lm-sphere">
+<circle id="lm-sphere-core" class="lm-sphere-core" cx="452" cy="273" r="33" fill="url(#lm-grad-sphere)"/>
+<circle class="lm-sphere-glow" cx="452" cy="273" r="22" fill="url(#lm-grad-core)"/>
+<g clip-path="url(#lm-clip-sphere)"><ellipse class="lm-sphere-reflect" cx="454" cy="290" rx="35" ry="8" fill="#ffffff" fill-opacity=".2"/></g>
+<circle class="lm-sphere-rim" cx="452" cy="273" r="32" fill="none" stroke="url(#lm-grad-rim)" stroke-width="2"/>
+<ellipse id="lm-sphere-highlight" class="lm-sphere-highlight" cx="441" cy="259" rx="9" ry="5.5" transform="rotate(-30 441 259)" fill="#ffffff" fill-opacity=".95"/>
+<circle class="lm-sphere-glint" cx="437" cy="256" r="2" fill="#ffffff"/>
+</g>
+</svg>
+</figure>
+<pre tabindex="0" aria-label="A first search from the shell"><span class="c"># a first search: passages with sources, no model needed</span>
+<span class="k">cob-rag-engine</span> search <span class="s">"How long should I fast before a cholesterol test?"</span> --final-k 3
+[1] Fasting before a lipid profile [faq-fasting-lipid]  (score 0.066)
+    For a lipid profile (cholesterol test) fast for 10 to 12 hours
+    before your sample is taken. ...</pre>
+    </div>
+  </div>
+</section>
+
+<section class="act" id="who">
+  <div class="wrap">
+    <header class="sec-head">
+      <div class="kicker">Who it's for</div>
+      <h2>Agents over MCP. <span class="thin">People in the shell.</span></h2>
+      <p class="sub">An agent is only as useful as what it knows about the business it works for: the returns policy, the price list, which tests need fasting. cob-rag-engine holds that knowledge, one isolated knowledge base (a corpus) per business. This package puts it where agents and people work.</p>
+    </header>
+    <div class="grid g2 who">
+      <div class="card is-surface">
+        <div class="tag">MCP server · cob-rag-mcp start</div>
+        <h3>In any MCP client</h3>
+        <p>Claude, Cursor, VS Code, n8n, any client that speaks MCP.</p>
+        <ul>
+          <li>The agent calls <code>search</code> to pull the right passages, with sources, and answers from them with its own model.</li>
+          <li>Or it calls <code>ask</code> for a complete cited answer written by the model configured in your engine.</li>
+          <li>Destructive tools are <b>hidden</b> unless you allow them with <code>COB_RAG_ALLOW_DESTRUCTIVE=true</code>.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="tag">Shell CLI · cob-rag-engine</div>
+        <h3>In the shell</h3>
+        <p>You, scripts, CI, an agent's own terminal.</p>
+        <ul>
+          <li><code>search "..."</code>, <code>ingest records</code>, <code>corpora create</code>, <code>usage</code>: every tool is also a command.</li>
+          <li>Readable tables by default, <code>--json</code> for scripts.</li>
+          <li>Destructive commands <b>ask first</b>, or need <code>--yes</code>.</li>
+        </ul>
+      </div>
+    </div>
+    <div class="table-wrap" tabindex="0" role="region" aria-label="CLI and MCP server compared">
+      <table>
+        <thead><tr><th></th><th>CLI (<code>cob-rag-engine</code>)</th><th>MCP server (<code>cob-rag-mcp start</code>)</th></tr></thead>
+        <tbody>
+          <tr><td>Who it is for</td><td>You, scripts, CI, an agent's own terminal</td><td>Claude, Cursor, VS Code, n8n, any MCP client</td></tr>
+          <tr><td>Output</td><td>Tables; <code>--json</code> for machines</td><td>JSON tool results</td></tr>
+          <tr><td>Destructive actions</td><td>Asks first, or <code>--yes</code></td><td>Hidden unless <code>COB_RAG_ALLOW_DESTRUCTIVE=true</code></td></tr>
+          <tr><td>Transports</td><td>n/a</td><td>stdio (default) and streamable HTTP</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section class="act tint" id="setup">
+  <div class="wrap">
+    <header class="sec-head">
+      <div class="kicker">Setup</div>
+      <h2>You host the engine. <span class="thin">No hosted service, ever.</span></h2>
+      <p class="sub">cob-rag-mcp is only a client. It talks to a cob-rag-engine that you run yourself, on your laptop, your server or your cloud, using the URL and key you give it. Nothing is sent anywhere else.</p>
+    </header>
+    <ol class="steps">
+      <li>
+        <h3>Run the engine</h3>
+        <p>One <code>docker compose up</code>. Start with the engine's <a href="https://github.com/callobuzz/cob-rag-engine#quick-start">quick start</a>, then come back. New to it? The <a href="https://callobuzz.github.io/cob-rag-engine">engine's site</a> has the overview.</p>
+      </li>
+      <li>
+        <h3>Get a key</h3>
+        <p>The admin key (<code>RAG_ADMIN_API_KEY</code> in the engine's <code>.env</code>), a tenant key (<code>tk_...</code>) or a corpus key (<code>ck_...</code>). <a href="#keys">Which one?</a></p>
+      </li>
+      <li>
+        <h3>Install</h3>
+        <p><code>npx -y cob-rag-mcp start</code> with nothing installed, or <code>npm i -g cob-rag-mcp</code> for both commands. Needs Node.js 22 or newer.</p>
+      </li>
+      <li>
+        <h3>Point it at the engine</h3>
+        <p>Set <code>COB_RAG_URL</code> and <code>COB_RAG_API_KEY</code>, or save them once with <code>cob-rag-engine login</code>.</p>
+      </li>
+    </ol>
+    <p class="host"><b>For <code>ask</code>,</b> a model must be configured in the engine (engine default, per corpus, or per request with your own key). <code>search</code> needs no model at all.</p>
+    <div class="table-wrap" tabindex="0" role="region" aria-label="Settings and their sources">
+      <table>
+        <thead><tr><th>Setting</th><th>Environment variable</th><th>Flag</th><th>Default</th></tr></thead>
+        <tbody>
+          <tr><td>Engine URL</td><td><code>COB_RAG_URL</code></td><td><code>--url</code></td><td><code>http://127.0.0.1:8000</code></td></tr>
+          <tr><td>Engine key (admin, <code>tk_</code> or <code>ck_</code>)</td><td><code>COB_RAG_API_KEY</code></td><td><code>--key</code></td><td>none</td></tr>
+          <tr><td>Default corpus for tenant and admin keys</td><td><code>COB_RAG_CORPUS_ID</code></td><td><code>--corpus-id</code> per command</td><td>none</td></tr>
+          <tr><td>Offer destructive tools over MCP</td><td><code>COB_RAG_ALLOW_DESTRUCTIVE</code></td><td><code>--allow-destructive</code></td><td><code>false</code></td></tr>
+          <tr><td>Hide or refuse every write</td><td><code>COB_RAG_READ_ONLY</code></td><td><code>--read-only</code></td><td><code>false</code></td></tr>
+          <tr><td>The only directory MCP <code>upload_file</code> may read</td><td><code>COB_RAG_UPLOAD_DIR</code></td><td></td><td>none (upload off)</td></tr>
+          <tr><td>HTTP mode: let keyless requests use the server key</td><td><code>COB_RAG_HTTP_USE_SERVER_KEY</code></td><td></td><td><code>false</code></td></tr>
+          <tr><td>Config file location</td><td><code>COB_RAG_CONFIG</code></td><td><code>--config</code></td><td>see the README</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">Priority: command-line flags, then environment variables, then your config file, then defaults. Bring your own model key with <code>COB_RAG_LLM_PROVIDER</code>, <code>COB_RAG_LLM_MODEL</code>, <code>COB_RAG_LLM_API_KEY</code> and <code>COB_RAG_LLM_BASE_URL</code>; they are sent as <code>X-LLM-*</code> headers on <code>search</code> and <code>ask</code> only. The <a href="https://github.com/callobuzz/cob-rag-mcp#configure">README</a> has the full list.</p>
+  </div>
+</section>
+
+<section class="act" id="connect">
+  <div class="wrap">
+    <header class="sec-head">
+      <div class="kicker">Install and connect</div>
+      <h2>Every snippet runs stdio <span class="thin">with a corpus key.</span></h2>
+      <p class="sub">Swap in a tenant or admin key to manage corpora; the tool list follows the key. Already ran <code>cob-rag-engine login</code>? Then the env block is optional: the server reads the saved config.</p>
+    </header>
+    <div class="snips">
+      <div class="snip">
+        <div class="label"><h3>Claude Code</h3><span class="where">terminal</span></div>
+<pre tabindex="0"><span class="k">claude</span> mcp add cob-rag \
+  -e COB_RAG_URL=http://127.0.0.1:8000 \
+  -e COB_RAG_API_KEY=ck_your_corpus_key \
+  -- npx -y cob-rag-mcp start</pre>
+        <p>Already logged in? <code>claude mcp add cob-rag -- npx -y cob-rag-mcp start</code> is enough.</p>
+      </div>
+      <div class="snip">
+        <div class="label"><h3>Claude Desktop</h3><span class="where">claude_desktop_config.json</span></div>
+<pre tabindex="0">{
+  "mcpServers": {
+    "cob-rag": {
+      "command": "npx",
+      "args": ["-y", "cob-rag-mcp", "start"],
+      "env": {
+        "COB_RAG_URL": "http://127.0.0.1:8000",
+        "COB_RAG_API_KEY": "ck_your_corpus_key"
+      }
+    }
+  }
+}</pre>
+        <p>macOS: <code>~/Library/Application Support/Claude/</code>. Windows: <code>%APPDATA%\Claude\</code>. Restart Claude Desktop afterwards.</p>
+      </div>
+      <div class="snip">
+        <div class="label"><h3>Claude Desktop on Windows</h3><span class="where">when npx is not found</span></div>
+<pre tabindex="0">{
+  "mcpServers": {
+    "cob-rag": {
+      "command": "cmd",
+      "args": ["/c", "npx", "-y", "cob-rag-mcp", "start"],
+      "env": {
+        "COB_RAG_URL": "http://127.0.0.1:8000",
+        "COB_RAG_API_KEY": "ck_your_corpus_key"
+      }
+    }
+  }
+}</pre>
+        <p>The <code>cmd /c</code> variant. Or install globally and use <code>cob-rag-mcp</code> as the command. Use <code>127.0.0.1</code>, not <code>localhost</code>: on Windows it can resolve to IPv6 <code>::1</code>, which Docker Desktop may not forward.</p>
+      </div>
+      <div class="snip">
+        <div class="label"><h3>Cursor</h3><span class="where">~/.cursor/mcp.json or .cursor/mcp.json</span></div>
+<pre tabindex="0">{
+  "mcpServers": {
+    "cob-rag": {
+      "command": "npx",
+      "args": ["-y", "cob-rag-mcp", "start"],
+      "env": {
+        "COB_RAG_URL": "http://127.0.0.1:8000",
+        "COB_RAG_API_KEY": "ck_your_corpus_key"
+      }
+    }
+  }
+}</pre>
+        <p>The first path covers all projects, the second one project.</p>
+      </div>
+      <div class="snip">
+        <div class="label"><h3>VS Code</h3><span class="where">.vscode/mcp.json</span></div>
+<pre tabindex="0">{
+  "inputs": [
+    { "type": "promptString", "id": "cob-rag-key", "description": "cob-rag-engine key", "password": true }
+  ],
+  "servers": {
+    "cob-rag": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "cob-rag-mcp", "start"],
+      "env": {
+        "COB_RAG_URL": "http://127.0.0.1:8000",
+        "COB_RAG_API_KEY": "${input:cob-rag-key}"
+      }
+    }
+  }
+}</pre>
+        <p>The <code>inputs</code> block makes VS Code ask for the key once and store it securely, so it never sits in the file.</p>
+      </div>
+      <div class="snip">
+        <div class="label"><h3>n8n and anything that speaks HTTP</h3><span class="where">streamable HTTP</span></div>
+<pre tabindex="0"><span class="k">cob-rag-mcp</span> start --transport http --host 127.0.0.1 --port 3333
+<span class="c"># MCP over HTTP at http://127.0.0.1:3333/mcp</span>
+
+<span class="c"># Claude Code over HTTP</span>
+<span class="k">claude</span> mcp add --transport http cob-rag http://127.0.0.1:3333/mcp \
+  --header "Authorization: Bearer ck_..."</pre>
+        <p><b>n8n:</b> add an MCP Client Tool node, endpoint <code>http://127.0.0.1:3333/mcp</code>, transport HTTP Streamable, authentication Bearer, token = the corpus key. Health check: <code>GET /health</code> answers <code>{"status":"ok"}</code> without a key.</p>
+      </div>
+      <div class="snip wide">
+        <div class="label"><h3>HTTP mode, the rules</h3></div>
+        <div class="grid g3">
+          <div class="card is-surface"><div class="tag">Every request</div><p>Carries the caller's own engine key, as <code>Authorization: Bearer &lt;key&gt;</code> or <code>X-API-Key: &lt;key&gt;</code>. A request without a key gets <code>401</code>, unless you set <code>COB_RAG_HTTP_USE_SERVER_KEY=true</code> on purpose.</p></div>
+          <div class="card is-surface"><div class="tag">Stateless</div><p>One fresh MCP server per request, so it scales horizontally and needs no sticky sessions. Callers may send their own <code>X-LLM-*</code> headers; the server's model key is never spent on a caller's behalf.</p></div>
+          <div class="card is-surface"><div class="tag">Bind</div><p>Binds <code>127.0.0.1</code> by default and, on loopback, refuses requests whose <code>Host</code> or <code>Origin</code> is not local. Bind wider and put TLS in front: keys travel in headers.</p></div>
+        </div>
+      </div>
+      <div class="snip">
+        <div class="label"><h3>Docker</h3><span class="where">HTTP mode</span></div>
+<pre tabindex="0"><span class="k">docker</span> build -t cob-rag-mcp .
+<span class="k">docker</span> run --rm -p 127.0.0.1:3333:3333 \
+  -e COB_RAG_URL=http://host.docker.internal:8000 \
+  cob-rag-mcp</pre>
+        <p>The engine URL must be reachable from the container: <code>host.docker.internal</code> for an engine on the host, or the engine's service name on a shared Docker network.</p>
+      </div>
+      <div class="snip">
+        <div class="label"><h3>Any other stdio client</h3></div>
+        <p>Command <code>npx</code>, arguments <code>-y cob-rag-mcp start</code>, plus the <code>COB_RAG_*</code> environment variables. With a global install, the command is simply <code>cob-rag-mcp start</code>.</p>
+        <p>If a client shows the server as failed, run <code>npx -y cob-rag-mcp start</code> in a terminal with the same environment: the reason is printed on stderr.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="act tint" id="tools">
+  <div class="wrap">
+    <header class="sec-head">
+      <div class="kicker">The tools</div>
+      <h2>52 tools, <span class="thin">only the ones your key can use.</span></h2>
+      <p class="sub">Each tool is one definition that is both an MCP tool and a CLI command. The server registers only the tools the key can use, and hides destructive ones unless allowed. With a tenant or admin key, tools that act on one corpus need a <code>corpus_id</code> (or a <code>COB_RAG_CORPUS_ID</code> default); a corpus key never sees that field.</p>
+    </header>
+    <div class="tgrid">
+<article class="tg"><header><h3>Identity</h3><span class="src">identity.ts</span></header><p>Who the key is, and what the engine offers.</p><ul>
+<li class="tool"><div class="n"><code>whoami</code></div><p>Which kind of key this is and what it reaches</p><span class="m">CLI: whoami · keys: any key</span></li>
+<li class="tool"><div class="n"><code>get_engine_info</code></div><p>Engine version, features, embedding and LLM models, limits (no secrets)</p><span class="m">CLI: info · keys: any key</span></li>
+</ul></article>
+<article class="tg"><header><h3>Search and answer</h3><span class="src">query.ts</span></header><p>Passages with sources, or a cited answer.</p><ul>
+<li class="tool"><div class="n"><code>search</code></div><p>Relevant passages with sources, no generation</p><span class="m">CLI: search · keys: any key</span></li>
+<li class="tool"><div class="n"><code>ask</code></div><p>A cited answer from the engine's model</p><span class="m">CLI: ask · keys: any key</span></li>
+</ul></article>
+<article class="tg"><header><h3>Documents</h3><span class="src">documents.ts</span></header><ul>
+<li class="tool"><div class="n"><code>list_documents</code></div><p>Documents, with record ids and metadata; search by file name or record id; paged</p><span class="m">CLI: documents list · keys: any key</span></li>
+<li class="tool"><div class="n"><code>get_document</code></div><p>One document, its versions and its indexed chunks, paged</p><span class="m">CLI: documents get · keys: any key</span></li>
+<li class="tool"><div class="n"><code>list_document_versions</code></div><p>Versions of one document</p><span class="m">CLI: documents versions · keys: any key</span></li>
+<li class="tool"><div class="n"><code>delete_document</code><span class="badge destructive">destructive</span></div><p>Delete a document, its versions and vectors</p><span class="m">CLI: documents delete · keys: any key</span></li>
+</ul></article>
+<article class="tg"><header><h3>Ingest</h3><span class="src">ingest.ts</span></header><ul>
+<li class="tool"><div class="n"><code>add_records</code><span class="badge write">write</span></div><p>Add or update up to 1000 text records</p><span class="m">CLI: ingest records · keys: any key</span></li>
+<li class="tool"><div class="n"><code>upload_file</code><span class="badge write">write</span></div><p>Upload a local file; MCP: stdio only, inside COB_RAG_UPLOAD_DIR</p><span class="m">CLI: ingest upload · keys: any key</span></li>
+<li class="tool"><div class="n"><code>get_ingest_job</code></div><p>One ingest job: status, corpus, file, mode, and the documents a held upload resembles</p><span class="m">CLI: ingest job · keys: any key</span></li>
+<li class="tool"><div class="n"><code>list_ingest_jobs</code></div><p>Ingest jobs in scope; filter by status and corpus_id; paged</p><span class="m">CLI: ingest jobs · keys: any key</span></li>
+</ul></article>
+<article class="tg"><header><h3>Usage and feedback</h3><span class="src">usage.ts, feedback.ts</span></header><ul>
+<li class="tool"><div class="n"><code>get_usage</code></div><p>Requests, tokens and estimated cost, by day, corpus, tenant or source</p><span class="m">CLI: usage · keys: any key</span></li>
+<li class="tool"><div class="n"><code>list_feedback</code></div><p>Ratings of answers with their questions; filter by corpus, rating, time; paged</p><span class="m">CLI: feedback list · keys: any key</span></li>
+</ul></article>
+<article class="tg"><header><h3>Settings</h3><span class="src">settings.ts</span></header><p>A corpus's settings, and the engine's own.</p><ul>
+<li class="tool"><div class="n"><code>get_corpus_settings</code></div><p>A corpus's model, prompt and retrieval settings</p><span class="m">CLI: settings get · keys: any key</span></li>
+<li class="tool"><div class="n"><code>update_corpus_settings</code><span class="badge write">write</span></div><p>Change prompt and retrieval settings; null clears one</p><span class="m">CLI: settings update · keys: any key</span></li>
+<li class="tool"><div class="n"><code>get_assistant</code></div><p>The knowledge base's assistant: on or off, the published configuration and the draft</p><span class="m">CLI: assistant get · keys: any key</span></li>
+<li class="tool"><div class="n"><code>update_assistant_draft</code><span class="badge write">write</span></div><p>Change the assistant's draft with a JSON merge patch; nothing goes live until it is published</p><span class="m">CLI: assistant draft · keys: any key</span></li>
+<li class="tool"><div class="n"><code>publish_assistant</code><span class="badge write">write</span></div><p>Make the draft live on every channel; earlier versions stay restorable</p><span class="m">CLI: assistant publish · keys: any key</span></li>
+<li class="tool"><div class="n"><code>get_settings</code></div><p>Sign-up mode (open, approval, closed) and white-label branding, with who changed them last</p><span class="m">CLI: engine settings · keys: admin only</span></li>
+<li class="tool"><div class="n"><code>update_settings</code><span class="badge write">write</span></div><p>Change the sign-up mode and/or branding; null resets a field</p><span class="m">CLI: engine update-settings · keys: admin only</span></li>
+</ul></article>
+<article class="tg"><header><h3>Knowledge bases</h3><span class="src">corpora.ts, migrations.ts</span></header><p>A knowledge base is a corpus.</p><ul>
+<li class="tool"><div class="n"><code>list_corpora</code></div><p>Corpora in scope with owner, document and chunk counts, last activity; paged, or all</p><span class="m">CLI: corpora list · keys: tenant or admin</span></li>
+<li class="tool"><div class="n"><code>get_corpus</code></div><p>One corpus with its settings</p><span class="m">CLI: corpora get · keys: tenant or admin</span></li>
+<li class="tool"><div class="n"><code>create_corpus</code><span class="badge write">write</span></div><p>New corpus, optionally with its embedding model; returns its ck_ key once</p><span class="m">CLI: corpora create · keys: tenant or admin</span></li>
+<li class="tool"><div class="n"><code>update_corpus</code><span class="badge write">write</span></div><p>Name, model, prompt, retrieval, embedding settings; admin can move it to another tenant</p><span class="m">CLI: corpora update · keys: tenant or admin</span></li>
+<li class="tool"><div class="n"><code>rotate_corpus_key</code><span class="badge destructive">destructive</span></div><p>New ck_ key; the old one stops working</p><span class="m">CLI: corpora rotate-key · keys: tenant or admin</span></li>
+<li class="tool"><div class="n"><code>delete_corpus</code><span class="badge destructive">destructive</span></div><p>Delete a corpus and everything in it</p><span class="m">CLI: corpora delete · keys: tenant or admin</span></li>
+<li class="tool"><div class="n"><code>list_migrations</code></div><p>Embedding migrations across corpora (pending_approval ones included); paged</p><span class="m">CLI: migrations list · keys: tenant or admin</span></li>
+</ul></article>
+<article class="tg"><header><h3>Widget keys</h3><span class="src">widget-keys.ts</span></header><p>Publishable keys for a corpus's website widget.</p><ul>
+<li class="tool"><div class="n"><code>list_widget_keys</code></div><p>Website widget keys (pk_)</p><span class="m">CLI: widget-keys list · keys: any key</span></li>
+<li class="tool"><div class="n"><code>create_widget_key</code><span class="badge write">write</span></div><p>New widget key and embed snippet</p><span class="m">CLI: widget-keys create · keys: any key</span></li>
+<li class="tool"><div class="n"><code>revoke_widget_key</code><span class="badge destructive">destructive</span></div><p>Delete a widget key</p><span class="m">CLI: widget-keys revoke · keys: any key</span></li>
+</ul></article>
+<article class="tg"><header><h3>Tenants and plans</h3><span class="src">tenants.ts, plans.ts</span></header><p>Who the customers are, and what they may use.</p><ul>
+<li class="tool"><div class="n"><code>get_my_tenant</code></div><p>This tenant key's own tenant: name, status, corpus count and limit</p><span class="m">CLI: tenants me · keys: tenant only</span></li>
+<li class="tool"><div class="n"><code>rotate_my_tenant_key</code><span class="badge destructive">destructive</span></div><p>New tk_ key for the key making the call; it stops working at once</p><span class="m">CLI: tenants rotate-my-key · keys: tenant only</span></li>
+<li class="tool"><div class="n"><code>list_tenants</code></div><p>Tenants with status (pending sign-ups, active, suspended) and owners; paged</p><span class="m">CLI: tenants list · keys: admin only</span></li>
+<li class="tool"><div class="n"><code>create_tenant</code><span class="badge write">write</span></div><p>New active tenant, optionally on a plan with its own knowledge-base limit; returns its tk_ key once</p><span class="m">CLI: tenants create · keys: admin only</span></li>
+<li class="tool"><div class="n"><code>rotate_tenant_key</code><span class="badge destructive">destructive</span></div><p>New tk_ key; the old one stops working</p><span class="m">CLI: tenants rotate-key · keys: admin only</span></li>
+<li class="tool"><div class="n"><code>activate_tenant</code><span class="badge write">write</span></div><p>Activate a pending sign-up (optional plan_id and note)</p><span class="m">CLI: tenants activate · keys: admin only</span></li>
+<li class="tool"><div class="n"><code>suspend_tenant</code><span class="badge destructive">destructive</span></div><p>Every key, widget and sign-in of the tenant stops (data kept); needs confirm_name</p><span class="m">CLI: tenants suspend · keys: admin only</span></li>
+<li class="tool"><div class="n"><code>reactivate_tenant</code><span class="badge write">write</span></div><p>Undo a suspension</p><span class="m">CLI: tenants reactivate · keys: admin only</span></li>
+<li class="tool"><div class="n"><code>decline_tenant</code><span class="badge destructive">destructive</span></div><p>Remove a pending sign-up and its account; the owner gets a polite e-mail</p><span class="m">CLI: tenants decline · keys: admin only</span></li>
+<li class="tool"><div class="n"><code>delete_tenant</code><span class="badge destructive">destructive</span></div><p>Delete a tenant and everything it owns; needs confirm_name</p><span class="m">CLI: tenants delete · keys: admin only</span></li>
+<li class="tool"><div class="n"><code>list_plans</code></div><p>Plans with their four limits and how many tenants use each</p><span class="m">CLI: plans list · keys: admin only</span></li>
+<li class="tool"><div class="n"><code>set_tenant_plan</code><span class="badge write">write</span></div><p>Move a tenant to another active plan</p><span class="m">CLI: plans set · keys: admin only</span></li>
+<li class="tool"><div class="n"><code>get_my_plan</code></div><p>A tenant's plan, limits and usage: questions this month (and when they reset), knowledge bases, documents, widget keys</p><span class="m">CLI: plans usage · keys: tenant or admin</span></li>
+</ul></article>
+<article class="tg"><header><h3>Team</h3><span class="src">team.ts</span></header><p>A tenant's owners and members.</p><ul>
+<li class="tool"><div class="n"><code>list_team</code></div><p>A tenant's owners and members (last sign-in) and open invitations</p><span class="m">CLI: team list · keys: tenant or admin</span></li>
+<li class="tool"><div class="n"><code>invite_member</code><span class="badge write">write</span></div><p>Invite someone as owner or member; the engine e-mails the link (never returned)</p><span class="m">CLI: team invite · keys: tenant only</span></li>
+<li class="tool"><div class="n"><code>admin_invite</code><span class="badge write">write</span></div><p>Invite someone to any tenant, typically its first owner; returns accept_url, the link to send them</p><span class="m">CLI: team admin-invite · keys: admin only</span></li>
+</ul></article>
+    </div>
+    <p class="note">Tool annotations match: <code>readOnlyHint</code> on reads, <code>destructiveHint</code> on destructive tools, <code>openWorldHint: false</code> everywhere, because every call goes to your own engine. <code>--read-only</code> leaves only the read tools. One prompt is included, <code>answer-with-citations</code>: search first, answer only from the passages, cite each source. Request and response shapes are typed from the engine's OpenAPI spec, so the tools cannot drift from the API. <code>cob-rag-engine tools</code> prints every tool and which keys can use it.</p>
+  </div>
+</section>
+
+<section class="act" id="cli">
+  <div class="wrap">
+    <header class="sec-head">
+      <div class="kicker">The CLI</div>
+      <h2>The same tools, <span class="thin">from the shell.</span></h2>
+      <p class="sub"><code>cob-rag-engine &lt;command&gt; [options]</code>. Global options: <code>--url</code>, <code>--key</code>, <code>--config</code>, <code>--json</code>, <code>--yes</code>, <code>--read-only</code>. Every command has <code>--help</code>. Exit codes: <code>0</code> success, <code>1</code> engine or configuration error, <code>2</code> invalid input.</p>
+    </header>
+    <div class="cli-grid">
+      <div class="snip">
+        <div class="label"><h3>Sign in, check the key</h3></div>
+<pre tabindex="0"><span class="k">cob-rag-engine</span> login --url http://127.0.0.1:8000 --key ck_...
+<span class="c"># Logged in to http://127.0.0.1:8000 with ck_****a1b2
+# kind         corpus
+# corpus_name  acme-faq</span>
+<span class="k">cob-rag-engine</span> whoami
+<span class="k">cob-rag-engine</span> config show          <span class="c"># every setting, its source, secrets masked</span>
+<span class="k">cob-rag-engine</span> config get api_key   <span class="c"># ck_****a1b2</span>
+<span class="k">cob-rag-engine</span> config set corpus_id 7b221003-...
+<span class="k">cob-rag-engine</span> config path</pre>
+        <p><code>login</code> checks the key with the engine's <code>/api/v1/whoami</code> before saving anything, and writes the config file owner-only (<code>0600</code>). Leave <code>--key</code> out at a terminal and it prompts without echoing.</p>
+      </div>
+      <div class="snip">
+        <div class="label"><h3>Search and ask</h3></div>
+<pre tabindex="0"><span class="k">cob-rag-engine</span> search <span class="s">"How long should I fast before a cholesterol test?"</span> --final-k 3
+<span class="c"># [1] Fasting before a lipid profile [faq-fasting-lipid]  (score 0.066)</span>
+
+<span class="k">cob-rag-engine</span> ask <span class="s">"Do I need to fast for a thyroid test?"</span>
+<span class="c"># No, you do not need to fast for a thyroid test. ... [1]
+#
+# Sources:
+#   [1] Thyroid test (TSH, T3, T4) [faq-thyroid]</span>
+
+<span class="k">cob-rag-engine</span> ask <span class="s">"..."</span> --stream          <span class="c"># prints as it is generated</span>
+<span class="k">cob-rag-engine</span> ask <span class="s">"..."</span> --stream --json   <span class="c"># raw events, one JSON object per line</span></pre>
+        <p><code>search</code> returns passages with sources and needs no model. <code>ask</code> returns a cited answer from the engine's model. Streaming is a CLI feature: an MCP tool call returns one result.</p>
+      </div>
+      <div class="snip">
+        <div class="label"><h3>Add knowledge</h3></div>
+<pre tabindex="0"><span class="c"># FAQ entries, products or articles (JSON array or JSON lines), wait until indexed</span>
+<span class="k">cob-rag-engine</span> ingest records --records @faq.json --wait
+<span class="k">cob-rag-engine</span> ingest upload ./price-list.pdf --wait
+<span class="k">cob-rag-engine</span> ingest jobs --status pending_review
+<span class="k">cob-rag-engine</span> ingest job &lt;job id&gt;
+
+<span class="k">cob-rag-engine</span> documents list --search price
+<span class="k">cob-rag-engine</span> documents get &lt;document id&gt; --chunk-limit 5</pre>
+        <p><code>ingest records</code> adds or updates up to 1000 text records. A held upload lists the documents it resembles.</p>
+      </div>
+      <div class="snip">
+        <div class="label"><h3>Usage, feedback, settings</h3></div>
+<pre tabindex="0"><span class="k">cob-rag-engine</span> usage --group-by source --start 2026-09-01
+<span class="k">cob-rag-engine</span> feedback list --max-rating 2 --start 2026-09-01
+<span class="k">cob-rag-engine</span> settings update --retrieval-config <span class="s">'{"final_k": 8}'</span>
+<span class="k">cob-rag-engine</span> settings update --retrieval-config <span class="s">'{"final_k": null}'</span>  <span class="c"># back to the default</span>
+<span class="k">cob-rag-engine</span> info                <span class="c"># engine version, features, models, limits</span>
+<span class="k">cob-rag-engine</span> tools               <span class="c"># every tool and which keys can use it</span>
+<span class="k">cob-rag-engine</span> documents list --json | jq <span class="s">'.items[].id'</span></pre>
+        <p>Updates change only what you send. A field set to <code>null</code> is removed so the engine default applies again.</p>
+      </div>
+      <div class="snip">
+        <div class="label"><h3>Tenant or admin key</h3></div>
+<pre tabindex="0"><span class="k">cob-rag-engine</span> corpora create <span class="s">"pune-path-lab"</span> --description <span class="s">"Test prep FAQ"</span>
+<span class="k">cob-rag-engine</span> corpora create <span class="s">"pune-path-lab"</span> --tenant-id &lt;tenant id&gt;   <span class="c"># admin names the tenant</span>
+<span class="k">cob-rag-engine</span> corpora list --all
+<span class="k">cob-rag-engine</span> widget-keys create <span class="s">"Lab website"</span> --corpus-id &lt;id&gt; \
+  --allowed-origins https://lab.example
+<span class="k">cob-rag-engine</span> migrations list --status pending_approval
+<span class="k">cob-rag-engine</span> corpora delete &lt;id&gt;     <span class="c"># asks first; --yes to skip</span></pre>
+        <p>Lists are paged by the engine. Under each table the CLI says which items these are and the option that gets the next page.</p>
+      </div>
+      <div class="snip">
+        <div class="label"><h3>The admin key</h3><span class="where">plans, a customer's first owner, settings</span></div>
+<pre tabindex="0"><span class="k">cob-rag-engine</span> plans list
+<span class="k">cob-rag-engine</span> tenants activate &lt;tenant id&gt; --plan-id &lt;plan id&gt; --note <span class="s">"paid via UPI"</span>
+<span class="k">cob-rag-engine</span> team admin-invite &lt;tenant id&gt; owner@shree.example
+<span class="k">cob-rag-engine</span> plans usage --tenant-id &lt;tenant id&gt;
+<span class="k">cob-rag-engine</span> engine update-settings --signup-mode approval \
+  --branding <span class="s">'{"product_name": "Sahayak AI"}'</span></pre>
+        <p><code>team admin-invite</code> prints the link to send the customer's first owner.</p>
+      </div>
+      <div class="snip wide">
+        <div class="label"><h3>A tenant key</h3><span class="where">its own record, plan and team, and a new key for itself</span></div>
+<pre tabindex="0"><span class="k">cob-rag-engine</span> plans usage                 <span class="c"># questions this month, and when they reset</span>
+<span class="k">cob-rag-engine</span> team list
+<span class="k">cob-rag-engine</span> team invite ravi@shree.example --role member
+<span class="k">cob-rag-engine</span> tenants me
+<span class="k">cob-rag-engine</span> tenants rotate-my-key      <span class="c"># warns, asks, then offers to save the new key</span>
+<span class="k">cob-rag-engine</span> tenants rotate-my-key --yes --save-key   <span class="c"># scripts: rotate and save in one go</span></pre>
+        <p><code>tenants rotate-my-key</code> replaces the very key the CLI is using, and the old key fails on its next request. The CLI says so before asking.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="act tint" id="keys">
+  <div class="wrap">
+    <header class="sec-head">
+      <div class="kicker">Keys</div>
+      <h2>The key decides the reach. <span class="thin">Give an agent the narrowest one.</span></h2>
+      <p class="sub">The server asks the engine who the key is and offers only the tools that key can use. The engine enforces scope on every request; this package also hides what a key cannot use, so an agent is not tempted to try.</p>
+    </header>
+    <div class="table-wrap keys" tabindex="0" role="region" aria-label="Key kinds compared">
+      <table>
+        <thead><tr><th>Key</th><th>Prefix</th><th>What it reaches</th><th>Give it to an agent?</th></tr></thead>
+        <tbody>
+          <tr><td data-label="Key">Corpus key</td><td data-label="Prefix"><code>ck_</code></td><td data-label="What it reaches">One knowledge base and nothing else: search, ask, documents, ingest, settings, usage, feedback, widget keys.</td><td data-label="Give it to an agent?"><span class="yes">Yes, this is the default.</span> A corpus key for one knowledge base.</td></tr>
+          <tr><td data-label="Key">Tenant key</td><td data-label="Prefix"><code>tk_</code></td><td data-label="What it reaches">Manages that tenant's corpora, its team, its own plan and record. Can rotate its own key.</td><td data-label="Give it to an agent?"><span class="rare">Only when the agent must create or manage corpora.</span></td></tr>
+          <tr><td data-label="Key">Admin key</td><td data-label="Prefix"><code>RAG_ADMIN_API_KEY</code></td><td data-label="What it reaches">Runs the engine: tenants, plans, sign-up mode and branding, every corpus.</td><td data-label="Give it to an agent?"><span class="no">Almost never.</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="grid pick">
+      <div class="card is-surface"><div class="tag">Rule of thumb</div><h3>Start with <code>ck_</code></h3><p>Hand the agent the corpus key for the one knowledge base it works on, add <code>--read-only</code> if it should only look things up, and leave destructive tools off.</p></div>
+      <div class="card"><div class="tag">Shown once</div><h3>Store keys when you see them</h3><p><code>create_corpus</code>, <code>create_tenant</code> and every <code>rotate_*</code> return the new key in the tool result, because that is the only time the engine reveals it.</p></div>
+      <div class="card"><div class="tag">Widget keys</div><h3><code>pk_</code> is a different thing</h3><p>Widget keys (<code>list_widget_keys</code>, <code>create_widget_key</code>, <code>revoke_widget_key</code>) are for a corpus's website widget, and come with an embed snippet.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="act" id="security">
+  <div class="wrap">
+    <header class="sec-head">
+      <div class="kicker">Security</div>
+      <h2>Safe defaults, <span class="thin">so an agent can't do much harm.</span></h2>
+      <p class="sub">From the README and <a href="https://github.com/callobuzz/cob-rag-mcp/blob/main/SECURITY.md">SECURITY.md</a>.</p>
+    </header>
+    <ul class="sec-list">
+      <li><b>Keys stay on your machine</b><span>They go to your engine and nowhere else. The config file is owner-only; <code>config show</code>, <code>login</code> and every log line mask keys (<code>ck_****a1b2</code>).</span></li>
+      <li><b>Destructive tools are off over MCP</b><span>Deleting documents or corpora, revoking widget keys, rotating keys and suspending, declining or deleting tenants appear only with <code>COB_RAG_ALLOW_DESTRUCTIVE=true</code>. The CLI asks before each one, and refuses when it cannot ask unless you pass <code>--yes</code>.</span></li>
+      <li><b>Read-only mode</b><span><code>--read-only</code> or <code>COB_RAG_READ_ONLY=true</code> hides every write tool from MCP clients and makes the CLI refuse every write.</span></li>
+      <li><b>Uploads over MCP are fenced</b><span><code>upload_file</code> exists over MCP only on stdio and only when <code>COB_RAG_UPLOAD_DIR</code> is set. Paths are resolved, symlinks included, and anything outside that directory is refused, so a prompt-injected agent cannot ship your SSH keys into a knowledge base. Use a dedicated folder, never your home directory.</span></li>
+      <li><b>HTTP mode never lends a key</b><span>Each request brings its own. Keep the default <code>127.0.0.1</code> bind, or put TLS and a firewall in front of it. Leave <code>COB_RAG_HTTP_USE_SERVER_KEY</code> off unless every client that can reach the port should act with that key.</span></li>
+      <li><b><code>rotate_my_tenant_key</code> cuts off the key in use</b><span>The server's own key is dead the moment it succeeds; restart it with the new key. The CLI warns first and offers to save the new key.</span></li>
+      <li><b>Never commit keys</b><span>Prefer <code>cob-rag-engine login</code>, which prompts without echo, or your MCP client's secret inputs, over pasting keys into files.</span></li>
+      <li><b>Report vulnerabilities privately</b><span>Do not open a public issue. Use <a href="https://github.com/callobuzz/cob-rag-mcp/security/advisories/new">GitHub Private Vulnerability Reporting</a> or <a href="mailto:callobuzz@gmail.com">callobuzz@gmail.com</a>; expect a first response within 48 hours. Engine vulnerabilities go to <a href="https://github.com/callobuzz/cob-rag-engine/security">cob-rag-engine</a>.</span></li>
+    </ul>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="final">
+      <div class="kicker">Open source · MIT</div>
+      <h2>Run the engine. <span class="thin">Plug in the agent.</span></h2>
+      <p class="sub">MIT, like the engine's client libraries; the engine itself is AGPL-3.0. Built by <a href="https://callobuzz.com">Call O Buzz Services</a>. Pair it with the <a href="https://callobuzz.github.io/cob-rag-engine">engine's site</a> for the overview, or start from its <a href="https://github.com/callobuzz/cob-rag-engine#quick-start">quick start</a>.</p>
+      <div class="cta">
+        <a class="btn btn-primary" href="https://github.com/callobuzz/cob-rag-mcp">★ Star on GitHub</a>
+        <a class="btn btn-ghost" href="https://www.npmjs.com/package/cob-rag-mcp">Install from npm</a>
+      </div>
+    </div>
+    <div class="foot-meta">
+      <div><a href="https://callobuzz.github.io/cob-rag-engine">cob-rag-engine by Callobuzz</a> · MIT</div>
+      <div class="foot-links">
+        <a href="https://github.com/callobuzz/cob-rag-mcp">GitHub</a>
+        <a href="https://www.npmjs.com/package/cob-rag-mcp">npm</a>
+        <a href="https://github.com/callobuzz/cob-rag-engine">Engine repo</a>
+        <a href="https://callobuzz.github.io/cob-rag-engine">Engine site</a>
+        <a href="https://github.com/callobuzz/cob-rag-mcp/blob/main/CHANGELOG.md">Changelog</a>
+        <a href="https://github.com/callobuzz/cob-rag-mcp/blob/main/SECURITY.md">Security</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function () {
+  /* nav: mark the section in view */
+  if ('IntersectionObserver' in window) {
+    var links = document.querySelectorAll('nav .links a'), map = {};
+    for (var i = 0; i < links.length; i++) map[links[i].getAttribute('href').slice(1)] = links[i];
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (!e.isIntersecting) return;
+        for (var k in map) map[k].removeAttribute('aria-current');
+        if (map[e.target.id]) map[e.target.id].setAttribute('aria-current', 'true');
+      });
+    }, { rootMargin: '-45% 0px -50% 0px' });
+    var secs = document.querySelectorAll('main > section[id]');
+    for (var j = 0; j < secs.length; j++) io.observe(secs[j]);
+  }
+  /* logo: assemble once, then a calm loop; paused while off-screen */
+  var lm = document.querySelector('.lm');
+  if (!lm) return;
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (!reduce) {
+    lm.setAttribute('data-state', 'armed');
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () {
+        lm.setAttribute('data-state', 'assemble');
+        setTimeout(function () { lm.setAttribute('data-state', 'live'); }, 3400);
+      });
+    });
+  }
+  if ('IntersectionObserver' in window) {
+    new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) { lm.classList.toggle('is-paused', !e.isIntersecting); });
+    }).observe(lm);
+  }
+})();
+</script>
+</body>
+</html>

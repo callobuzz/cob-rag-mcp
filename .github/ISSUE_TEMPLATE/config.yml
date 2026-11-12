@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: A problem in the engine itself
+    url: https://github.com/callobuzz/cob-rag-engine/issues
+    about: Answers, documents, the dashboard or the widget belong to cob-rag-engine.
+  - name: Report a security problem
+    url: https://github.com/callobuzz/cob-rag-mcp/security/policy
+    about: Do not open a public issue. Follow SECURITY.md and e-mail the maintainers.

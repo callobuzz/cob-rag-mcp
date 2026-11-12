@@ -1,0 +1,35 @@
+name: Bug report
+description: A tool or a CLI command does not work as the README says
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not report a security problem here. Follow SECURITY.md instead.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what you saw.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to see it
+      description: The MCP client (Claude, Cursor, VS Code, n8n...) or the CLI command you ran.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Versions
+      description: "cob-rag-mcp --version, and the engine's version (GET /api/v1/info)."
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Log lines
+      description: "The last lines of the output. Remove keys first."
+      render: text

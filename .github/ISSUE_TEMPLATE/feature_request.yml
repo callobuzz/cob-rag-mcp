@@ -1,0 +1,15 @@
+name: Feature request
+description: A tool, a command or an option you would like
+labels: [enhancement]
+body:
+  - type: textarea
+    id: need
+    attributes:
+      label: What you want to do
+      description: The task, and the agent or script you want to do it from.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: How it could work

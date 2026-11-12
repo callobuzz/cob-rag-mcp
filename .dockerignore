@@ -1,0 +1,27 @@
+# Keep the build context to what the builder stage needs.
+.git
+.github
+node_modules
+dist
+coverage
+
+# Secrets never go into an image
+.env
+.env.*
+*.pem
+*.key
+
+# Tests and docs
+**/*.test.ts
+vitest.config.ts
+vitest.integration.config.ts
+*.md
+LICENSE
+scripts
+
+# Editors and OS
+.vscode
+.idea
+.claude
+.DS_Store
+Thumbs.db
